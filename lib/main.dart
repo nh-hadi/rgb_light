@@ -194,7 +194,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
           child: Column(
-            crossAxisAlignment: CrossAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               const SizedBox(height: 8),
 
