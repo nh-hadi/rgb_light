@@ -1,0 +1,47 @@
+name: Build Flutter Release APK
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Memungkinkan Build Manual dari Tab Actions di GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Java JDK 17 (Wajib untuk Gradle modern)
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      # 3. Set up Flutter SDK Stable
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # 4. Ambil Dependensi Pub
+      - name: Get Dependencies
+        run: flutter pub get
+
+      # 5. Build Flutter Release APK
+      - name: Build Android Release APK
+        run: flutter build apk --release
+
+      # 6. Unggah APK sebagai Artifact Hasil Build
+      - name: Upload Release APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SmartAmbientLight-Release-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
