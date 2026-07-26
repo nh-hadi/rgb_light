@@ -64,17 +64,17 @@ class EspWebSocketService {
     });
   }
 
-  // Fungsi pembatas laju pengiriman paket (Throttling 50 ms Universal untuk semua perintah)
+  // Throttling 150ms saat menggeser perlahan agar memori interrupt ESP8266 tidak sesak
   bool _shouldThrottle() {
     final now = DateTime.now();
-    if (now.difference(_lastSendTime).inMilliseconds < 50) {
-      return true; // Abaikan jika kurang dari 50 ms
+    if (now.difference(_lastSendTime).inMilliseconds < 150) {
+      return true; // Abaikan jika kurang dari 150 ms
     }
     _lastSendTime = now;
     return false;
   }
 
-  // Pengiriman Warna Throttled (Max 1 paket per 30 ms)
+  // Pengiriman Warna saat menggeser (Throttled 150ms)
   void sendColor(Color color) {
     if (connectionState.value != EspConnectionState.connected || _socket == null) return;
     if (_shouldThrottle()) return;
@@ -86,7 +86,19 @@ class EspWebSocketService {
     _send('C:$r,$g,$b');
   }
 
-  // Pengiriman Kecerahan Throttled (Format "B:Val")
+  // Pengiriman Warna Langsung saat lepas jari (onPanEnd)
+  void sendColorDirect(Color color) {
+    if (connectionState.value != EspConnectionState.connected || _socket == null) return;
+    _lastSendTime = DateTime.now();
+
+    final r = (color.r * 255).round();
+    final g = (color.g * 255).round();
+    final b = (color.b * 255).round();
+
+    _send('C:$r,$g,$b');
+  }
+
+  // Pengiriman Kecerahan saat menggeser (Throttled 150ms)
   void sendBrightness(int brightness) {
     if (connectionState.value != EspConnectionState.connected || _socket == null) return;
     if (_shouldThrottle()) return;
@@ -95,12 +107,30 @@ class EspWebSocketService {
     _send('B:$val');
   }
 
-  // Pengiriman Kecepatan Animasi Throttled (Format "S:SpeedVal")
+  // Pengiriman Kecerahan Langsung saat lepas jari (onChangeEnd)
+  void sendBrightnessDirect(int brightness) {
+    if (connectionState.value != EspConnectionState.connected || _socket == null) return;
+    _lastSendTime = DateTime.now();
+
+    final val = brightness.clamp(0, 255);
+    _send('B:$val');
+  }
+
+  // Pengiriman Kecepatan Animasi saat menggeser (Throttled 150ms)
   void sendSpeed(int speedMs) {
     if (connectionState.value != EspConnectionState.connected || _socket == null) return;
     if (_shouldThrottle()) return;
 
-    final val = speedMs.clamp(10, 65535);
+    final val = speedMs.clamp(100, 3000);
+    _send('S:$val');
+  }
+
+  // Pengiriman Kecepatan Langsung saat lepas jari (onChangeEnd)
+  void sendSpeedDirect(int speedMs) {
+    if (connectionState.value != EspConnectionState.connected || _socket == null) return;
+    _lastSendTime = DateTime.now();
+
+    final val = speedMs.clamp(100, 3000);
     _send('S:$val');
   }
 

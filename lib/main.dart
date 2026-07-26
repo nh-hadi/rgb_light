@@ -41,8 +41,6 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
   // Status Warna, Kecerahan, Kecepatan, dan Mode Efek
   Color _selectedColor = const Color(0xFFFF3B30); // Warna Awal (Merah)
   double _brightness = 255.0; // Kecerahan 0 - 255
-
-  // Persentase Kecepatan Slider: 0% (Lambat / 3000ms) s/d 100% (Cepat / 100ms)
   double _speedPercent = 70.0; // Default 70% (~1000ms delay)
 
   // Default Mode ke Mode 12 (Rainbow Cycle)
@@ -73,9 +71,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
     _espService.forceReconnect();
   }
 
-  // Mengubah persentase slider (0-100%) menjadi delay milidetik terbalik (3000ms - 100ms)
   int _calculateDelayMs(double percent) {
-    // 0% -> 3000 ms (Lambat), 100% -> 100 ms (Cepat)
     final delay = 3000 - ((percent / 100.0) * 2900);
     return delay.round().clamp(100, 3000);
   }
@@ -208,6 +204,9 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                     });
                     _espService.sendColor(color);
                   },
+                  onColorEnd: (color) {
+                    _espService.sendColorDirect(color);
+                  },
                 ),
               ),
 
@@ -320,6 +319,9 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                         });
                         _espService.sendBrightness(val.round());
                       },
+                      onChangeEnd: (val) {
+                        _espService.sendBrightnessDirect(val.round());
+                      },
                     ),
                   ),
                 ],
@@ -384,6 +386,10 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                         });
                         final delayMs = _calculateDelayMs(val);
                         _espService.sendSpeed(delayMs);
+                      },
+                      onChangeEnd: (val) {
+                        final delayMs = _calculateDelayMs(val);
+                        _espService.sendSpeedDirect(delayMs);
                       },
                     ),
                   ),
@@ -468,12 +474,14 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
 class ColorWheelPicker extends StatefulWidget {
   final Color initialColor;
   final ValueChanged<Color> onColorChanged;
+  final ValueChanged<Color>? onColorEnd;
   final double size;
 
   const ColorWheelPicker({
     super.key,
     required this.initialColor,
     required this.onColorChanged,
+    this.onColorEnd,
     this.size = 270.0,
   });
 
@@ -503,7 +511,7 @@ class _ColorWheelPickerState extends State<ColorWheelPicker> {
     return Offset(x, y);
   }
 
-  void _updateColorFromPosition(Offset localPosition, Size size) {
+  void _updateColorFromPosition(Offset localPosition, Size size, {bool isEnd = false}) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.width / 2) - 16;
 
@@ -527,7 +535,11 @@ class _ColorWheelPickerState extends State<ColorWheelPicker> {
       _currentHsv = newHsv;
     });
 
-    widget.onColorChanged(newColor);
+    if (isEnd) {
+      widget.onColorEnd?.call(newColor);
+    } else {
+      widget.onColorChanged(newColor);
+    }
   }
 
   @override
@@ -541,7 +553,8 @@ class _ColorWheelPickerState extends State<ColorWheelPicker> {
         return GestureDetector(
           onPanStart: (details) => _updateColorFromPosition(details.localPosition, size),
           onPanUpdate: (details) => _updateColorFromPosition(details.localPosition, size),
-          onTapDown: (details) => _updateColorFromPosition(details.localPosition, size),
+          onPanEnd: (details) => widget.onColorEnd?.call(_currentHsv.toColor()),
+          onTapDown: (details) => _updateColorFromPosition(details.localPosition, size, isEnd: true),
           child: SizedBox(
             width: wheelSize,
             height: wheelSize,
