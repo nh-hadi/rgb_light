@@ -64,11 +64,11 @@ class EspWebSocketService {
     });
   }
 
-  // Fungsi pembatas laju pengiriman paket (Throttling 30 ms Universal untuk semua perintah)
+  // Fungsi pembatas laju pengiriman paket (Throttling 50 ms Universal untuk semua perintah)
   bool _shouldThrottle() {
     final now = DateTime.now();
-    if (now.difference(_lastSendTime).inMilliseconds < 30) {
-      return true; // Abaikan jika kurang dari 30 ms
+    if (now.difference(_lastSendTime).inMilliseconds < 50) {
+      return true; // Abaikan jika kurang dari 50 ms
     }
     _lastSendTime = now;
     return false;
