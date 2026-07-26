@@ -1,7 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
-import 'esp_websocket_service.dart';
+import 'esp_udp_service.dart';
 import 'ws2812fx_modes.dart';
 
 void main() {
@@ -46,29 +46,18 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
   // Default Mode ke Mode 12 (Rainbow Cycle)
   WS2812FXMode _selectedMode = kWS2812FXModes[12];
 
-  final EspWebSocketService _espService = EspWebSocketService();
+  final EspUdpService _udpService = EspUdpService();
 
   @override
   void initState() {
     super.initState();
-    _espService.connect();
+    _udpService.init();
   }
 
   @override
   void dispose() {
-    _espService.dispose();
+    _udpService.dispose();
     super.dispose();
-  }
-
-  void _triggerManualConnect() {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Mencoba menghubungkan ke WiFi AP ESP8266 (192.168.4.1)...'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-    _espService.forceReconnect();
   }
 
   int _calculateDelayMs(double percent) {
@@ -112,76 +101,39 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
           ],
         ),
         actions: [
-          // TOMBOL KONEKSI WIFI TERINTEGRASI DI APPBAR
-          ValueListenableBuilder<EspConnectionState>(
-            valueListenable: _espService.connectionState,
-            builder: (context, state, child) {
-              final isConnected = state == EspConnectionState.connected;
-              final isConnecting = state == EspConnectionState.connecting;
-
-              return Padding(
-                padding: const EdgeInsets.only(right: 12.0),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: _triggerManualConnect,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        color: isConnected
-                            ? const Color(0xFFE8F5E9)
-                            : (isConnecting ? Colors.orange[50] : Colors.blue[50]),
-                        border: Border.all(
-                          color: isConnected
-                              ? const Color(0xFF34C759)
-                              : (isConnecting ? Colors.orange : Colors.blueAccent),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (isConnecting)
-                            const SizedBox(
-                              width: 12,
-                              height: 12,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.orange,
-                              ),
-                            )
-                          else
-                            Icon(
-                              isConnected
-                                  ? Icons.wifi_rounded
-                                  : Icons.wifi_tethering_rounded,
-                              size: 16,
-                              color: isConnected
-                                  ? const Color(0xFF34C759)
-                                  : Colors.blueAccent,
-                            ),
-                          const SizedBox(width: 6),
-                          Text(
-                            isConnected
-                                ? 'Terhubung'
-                                : (isConnecting ? 'Menghubungkan...' : 'Hubungkan WiFi'),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isConnected
-                                  ? const Color(0xFF2E7D32)
-                                  : (isConnecting ? Colors.orange[900] : Colors.blue[800]),
-                            ),
-                          ),
-                        ],
-                      ),
+          // BADGE STATUS UDP REAL-TIME (SELALU SIAP KIRIM INSTAN)
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: const Color(0xFFE8F5E9),
+                border: Border.all(
+                  color: const Color(0xFF34C759),
+                  width: 1.2,
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.bolt_rounded,
+                    size: 16,
+                    color: Color(0xFF34C759),
+                  ),
+                  SizedBox(width: 6),
+                  Text(
+                    'UDP Real-Time',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF2E7D32),
                     ),
                   ),
-                ),
-              );
-            },
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -202,10 +154,10 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                     setState(() {
                       _selectedColor = color;
                     });
-                    _espService.sendColor(color);
+                    _udpService.sendColor(color);
                   },
                   onColorEnd: (color) {
-                    _espService.sendColorDirect(color);
+                    _udpService.sendColorDirect(color);
                   },
                 ),
               ),
@@ -317,10 +269,10 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                         setState(() {
                           _brightness = val;
                         });
-                        _espService.sendBrightness(val.round());
+                        _udpService.sendBrightness(val.round());
                       },
                       onChangeEnd: (val) {
-                        _espService.sendBrightnessDirect(val.round());
+                        _udpService.sendBrightnessDirect(val.round());
                       },
                     ),
                   ),
@@ -385,11 +337,11 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                           _speedPercent = val;
                         });
                         final delayMs = _calculateDelayMs(val);
-                        _espService.sendSpeed(delayMs);
+                        _udpService.sendSpeed(delayMs);
                       },
                       onChangeEnd: (val) {
                         final delayMs = _calculateDelayMs(val);
-                        _espService.sendSpeedDirect(delayMs);
+                        _udpService.sendSpeedDirect(delayMs);
                       },
                     ),
                   ),
@@ -450,7 +402,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                             setState(() {
                               _selectedMode = mode;
                             });
-                            _espService.sendMode(mode.id);
+                            _udpService.sendMode(mode.id);
                           }
                         },
                       ),
