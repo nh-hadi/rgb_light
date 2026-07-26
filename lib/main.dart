@@ -21,7 +21,7 @@ class ControlledApp extends StatelessWidget {
         brightness: Brightness.light,
         scaffoldBackgroundColor: const Color(0xFFF8F9FA),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.amber,
+          seedColor: Colors.blueAccent,
           brightness: Brightness.light,
         ),
       ),
@@ -41,9 +41,9 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
   // Status Warna, Kecerahan, Kecepatan, dan Mode Efek
   Color _selectedColor = const Color(0xFFFF3B30); // Warna Awal (Merah)
   double _brightness = 255.0; // Kecerahan 0 - 255
-  double _speed = 1000.0; // Kecepatan default 1000 ms (1 detik)
+  double _speed = 1000.0; // Kecepatan default 1000 ms
 
-  // Default Mode ke Mode 12 (Rainbow Cycle) sesuai permintaan
+  // Default Mode ke Mode 12 (Rainbow Cycle)
   WS2812FXMode _selectedMode = kWS2812FXModes[12];
 
   final EspWebSocketService _espService = EspWebSocketService();
@@ -60,6 +60,17 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
     super.dispose();
   }
 
+  void _triggerManualConnect() {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Mencoba menghubungkan ke WiFi AP ESP8266 (192.168.4.1)...'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    _espService.forceReconnect();
+  }
+
   @override
   Widget build(BuildContext context) {
     final int r = (_selectedColor.r * 255).round();
@@ -71,7 +82,6 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
         '${g.toRadixString(16).padLeft(2, '0').toUpperCase()}'
         '${b.toRadixString(16).padLeft(2, '0').toUpperCase()}';
 
-    // Format tampilan kecepatan (detik / milidetik)
     final double speedInSec = _speed / 1000.0;
     final String speedLabel = speedInSec >= 1.0
         ? '${speedInSec.toStringAsFixed(1)} dt'
@@ -81,9 +91,8 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: false,
         title: const Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.auto_awesome_rounded,
@@ -96,14 +105,14 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
               style: TextStyle(
                 color: Color(0xFF1D1B20),
                 fontWeight: FontWeight.w800,
-                fontSize: 20,
+                fontSize: 19,
                 letterSpacing: 0.2,
               ),
             ),
           ],
         ),
         actions: [
-          // Indikator Status Koneksi WebSocket
+          // TOMBOL KONEKSI WIFI TERINTEGRASI DI APPBAR
           ValueListenableBuilder<EspConnectionState>(
             valueListenable: _espService.connectionState,
             builder: (context, state, child) {
@@ -111,33 +120,65 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
               final isConnecting = state == EspConnectionState.connecting;
 
               return Padding(
-                padding: const EdgeInsets.only(right: 16.0),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
+                padding: const EdgeInsets.only(right: 12.0),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: _triggerManualConnect,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(20),
                         color: isConnected
-                            ? const Color(0xFF34C759)
-                            : (isConnecting ? Colors.orange : Colors.grey),
+                            ? const Color(0xFFE8F5E9)
+                            : (isConnecting ? Colors.orange[50] : Colors.blue[50]),
+                        border: Border.all(
+                          color: isConnected
+                              ? const Color(0xFF34C759)
+                              : (isConnecting ? Colors.orange : Colors.blueAccent),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (isConnecting)
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.orange,
+                              ),
+                            )
+                          else
+                            Icon(
+                              isConnected
+                                  ? Icons.wifi_rounded
+                                  : Icons.wifi_tethering_rounded,
+                              size: 16,
+                              color: isConnected
+                                  ? const Color(0xFF34C759)
+                                  : Colors.blueAccent,
+                            ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isConnected
+                                ? 'Terhubung'
+                                : (isConnecting ? 'Menghubungkan...' : 'Hubungkan WiFi'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isConnected
+                                  ? const Color(0xFF2E7D32)
+                                  : (isConnecting ? Colors.orange[900] : Colors.blue[800]),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Text(
-                      isConnected
-                          ? 'Connected'
-                          : (isConnecting ? 'Connecting...' : 'Offline'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isConnected
-                            ? const Color(0xFF34C759)
-                            : Colors.grey[600],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               );
             },
@@ -147,7 +188,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [

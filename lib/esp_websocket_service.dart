@@ -28,7 +28,7 @@ class EspWebSocketService {
 
     try {
       final ioSocket = await WebSocket.connect(_wsUrl).timeout(
-        const Duration(seconds: 3),
+        const Duration(seconds: 4),
       );
       _socket = ioSocket;
       connectionState.value = EspConnectionState.connected;
@@ -41,6 +41,17 @@ class EspWebSocketService {
     } catch (e) {
       _handleDisconnect();
     }
+  }
+
+  // Fungsi Paksa Hubungkan Ulang (Manual Reconnect) saat Tombol Ditekan
+  void forceReconnect() {
+    _reconnectTimer?.cancel();
+    try {
+      _socket?.close();
+    } catch (e) {}
+    _socket = null;
+    connectionState.value = EspConnectionState.disconnected;
+    connect();
   }
 
   void _handleDisconnect() {
