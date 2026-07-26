@@ -43,7 +43,6 @@ class EspWebSocketService {
     }
   }
 
-  // Fungsi Paksa Hubungkan Ulang (Manual Reconnect) saat Tombol Ditekan
   void forceReconnect() {
     _reconnectTimer?.cancel();
     try {
@@ -65,15 +64,20 @@ class EspWebSocketService {
     });
   }
 
+  // Fungsi pembatas laju pengiriman paket (Throttling 30 ms Universal untuk semua perintah)
+  bool _shouldThrottle() {
+    final now = DateTime.now();
+    if (now.difference(_lastSendTime).inMilliseconds < 30) {
+      return true; // Abaikan jika kurang dari 30 ms
+    }
+    _lastSendTime = now;
+    return false;
+  }
+
   // Pengiriman Warna Throttled (Max 1 paket per 30 ms)
   void sendColor(Color color) {
     if (connectionState.value != EspConnectionState.connected || _socket == null) return;
-
-    final now = DateTime.now();
-    if (now.difference(_lastSendTime).inMilliseconds < 30) {
-      return;
-    }
-    _lastSendTime = now;
+    if (_shouldThrottle()) return;
 
     final r = (color.r * 255).round();
     final g = (color.g * 255).round();
@@ -82,24 +86,28 @@ class EspWebSocketService {
     _send('C:$r,$g,$b');
   }
 
-  // Pengiriman Kecerahan (Format "B:Val")
+  // Pengiriman Kecerahan Throttled (Format "B:Val")
   void sendBrightness(int brightness) {
     if (connectionState.value != EspConnectionState.connected || _socket == null) return;
+    if (_shouldThrottle()) return;
+
     final val = brightness.clamp(0, 255);
     _send('B:$val');
+  }
+
+  // Pengiriman Kecepatan Animasi Throttled (Format "S:SpeedVal")
+  void sendSpeed(int speedMs) {
+    if (connectionState.value != EspConnectionState.connected || _socket == null) return;
+    if (_shouldThrottle()) return;
+
+    final val = speedMs.clamp(10, 65535);
+    _send('S:$val');
   }
 
   // Pengiriman Mode Efek (Format "M:ModeID")
   void sendMode(int modeId) {
     if (connectionState.value != EspConnectionState.connected || _socket == null) return;
     _send('M:$modeId');
-  }
-
-  // Pengiriman Kecepatan Animasi (Format "S:SpeedVal" - 10ms s/d 65535ms)
-  void sendSpeed(int speedMs) {
-    if (connectionState.value != EspConnectionState.connected || _socket == null) return;
-    final val = speedMs.clamp(10, 65535);
-    _send('S:$val');
   }
 
   void _send(String message) {

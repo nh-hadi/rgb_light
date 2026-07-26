@@ -41,7 +41,9 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
   // Status Warna, Kecerahan, Kecepatan, dan Mode Efek
   Color _selectedColor = const Color(0xFFFF3B30); // Warna Awal (Merah)
   double _brightness = 255.0; // Kecerahan 0 - 255
-  double _speed = 1000.0; // Kecepatan default 1000 ms
+
+  // Persentase Kecepatan Slider: 0% (Lambat / 3000ms) s/d 100% (Cepat / 100ms)
+  double _speedPercent = 70.0; // Default 70% (~1000ms delay)
 
   // Default Mode ke Mode 12 (Rainbow Cycle)
   WS2812FXMode _selectedMode = kWS2812FXModes[12];
@@ -71,6 +73,13 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
     _espService.forceReconnect();
   }
 
+  // Mengubah persentase slider (0-100%) menjadi delay milidetik terbalik (3000ms - 100ms)
+  int _calculateDelayMs(double percent) {
+    // 0% -> 3000 ms (Lambat), 100% -> 100 ms (Cepat)
+    final delay = 3000 - ((percent / 100.0) * 2900);
+    return delay.round().clamp(100, 3000);
+  }
+
   @override
   Widget build(BuildContext context) {
     final int r = (_selectedColor.r * 255).round();
@@ -81,11 +90,6 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
         '#${r.toRadixString(16).padLeft(2, '0').toUpperCase()}'
         '${g.toRadixString(16).padLeft(2, '0').toUpperCase()}'
         '${b.toRadixString(16).padLeft(2, '0').toUpperCase()}';
-
-    final double speedInSec = _speed / 1000.0;
-    final String speedLabel = speedInSec >= 1.0
-        ? '${speedInSec.toStringAsFixed(1)} dt'
-        : '${_speed.round()} ms';
 
     return Scaffold(
       appBar: AppBar(
@@ -190,7 +194,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
           physics: const BouncingScrollPhysics(),
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAlignment.center,
             children: [
               const SizedBox(height: 8),
 
@@ -323,7 +327,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
 
               const SizedBox(height: 24),
 
-              // 4. SLIDER KECEPATAN ANIMASI (SPEED SLIDER: 10 ms s/d 65.000 ms)
+              // 4. SLIDER KECEPATAN ANIMASI (SEMAKIN FULL = SEMAKIN CEPAT)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -349,7 +353,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                         ],
                       ),
                       Text(
-                        speedLabel,
+                        '${_speedPercent.round()}%',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
@@ -371,14 +375,15 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                       ),
                     ),
                     child: Slider(
-                      value: _speed,
-                      min: 10,
-                      max: 65000,
+                      value: _speedPercent,
+                      min: 0,
+                      max: 100,
                       onChanged: (val) {
                         setState(() {
-                          _speed = val;
+                          _speedPercent = val;
                         });
-                        _espService.sendSpeed(val.round());
+                        final delayMs = _calculateDelayMs(val);
+                        _espService.sendSpeed(delayMs);
                       },
                     ),
                   ),
