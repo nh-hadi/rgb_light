@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:io' if (dart.library.html) 'dart:html' as ws_impl;
-import 'dart:io' as io_impl;
-import 'package:flutter/foundation.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 enum EspConnectionState { disconnected, connecting, connected }
@@ -11,7 +9,7 @@ class EspWebSocketService {
   factory EspWebSocketService() => _instance;
   EspWebSocketService._internal();
 
-  dynamic _socket;
+  WebSocket? _socket;
   Timer? _reconnectTimer;
   DateTime _lastSendTime = DateTime.now();
 
@@ -29,36 +27,17 @@ class EspWebSocketService {
     connectionState.value = EspConnectionState.connecting;
 
     try {
-      if (!kIsWeb) {
-        // Platform Mobile (Android / iOS)
-        final ioSocket = await io_impl.WebSocket.connect(_wsUrl).timeout(
-          const Duration(seconds: 3),
-        );
-        _socket = ioSocket;
-        connectionState.value = EspConnectionState.connected;
+      final ioSocket = await WebSocket.connect(_wsUrl).timeout(
+        const Duration(seconds: 3),
+      );
+      _socket = ioSocket;
+      connectionState.value = EspConnectionState.connected;
 
-        ioSocket.listen(
-          (data) {},
-          onDone: () => _handleDisconnect(),
-          onError: (error) => _handleDisconnect(),
-        );
-      } else {
-        // Platform Web Browser (Testing di Browser)
-        final webSocket = ws_impl.WebSocket(_wsUrl);
-        _socket = webSocket;
-
-        webSocket.onOpen.listen((event) {
-          connectionState.value = EspConnectionState.connected;
-        });
-
-        webSocket.onClose.listen((event) {
-          _handleDisconnect();
-        });
-
-        webSocket.onError.listen((event) {
-          _handleDisconnect();
-        });
-      }
+      ioSocket.listen(
+        (data) {},
+        onDone: () => _handleDisconnect(),
+        onError: (error) => _handleDisconnect(),
+      );
     } catch (e) {
       _handleDisconnect();
     }
@@ -114,11 +93,7 @@ class EspWebSocketService {
 
   void _send(String message) {
     try {
-      if (!kIsWeb && _socket is io_impl.WebSocket) {
-        (_socket as io_impl.WebSocket).add(message);
-      } else if (kIsWeb && _socket != null) {
-        _socket.send(message);
-      }
+      _socket?.add(message);
     } catch (e) {
       _handleDisconnect();
     }
@@ -127,11 +102,7 @@ class EspWebSocketService {
   void dispose() {
     _reconnectTimer?.cancel();
     try {
-      if (!kIsWeb && _socket is io_impl.WebSocket) {
-        (_socket as io_impl.WebSocket).close();
-      } else if (kIsWeb && _socket != null) {
-        _socket.close();
-      }
+      _socket?.close();
     } catch (e) {}
   }
 }
