@@ -1,5 +1,7 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'dart:html' as ws_impl;
+import 'dart:io' as io_impl;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 enum EspConnectionState { disconnected, connecting, connected }
@@ -9,7 +11,7 @@ class EspWebSocketService {
   factory EspWebSocketService() => _instance;
   EspWebSocketService._internal();
 
-  WebSocket? _socket;
+  dynamic _socket;
   Timer? _reconnectTimer;
   DateTime _lastSendTime = DateTime.now();
 
@@ -27,16 +29,36 @@ class EspWebSocketService {
     connectionState.value = EspConnectionState.connecting;
 
     try {
-      _socket = await WebSocket.connect(_wsUrl).timeout(
-        const Duration(seconds: 3),
-      );
-      connectionState.value = EspConnectionState.connected;
+      if (!kIsWeb) {
+        // Platform Mobile (Android / iOS)
+        final ioSocket = await io_impl.WebSocket.connect(_wsUrl).timeout(
+          const Duration(seconds: 3),
+        );
+        _socket = ioSocket;
+        connectionState.value = EspConnectionState.connected;
 
-      _socket?.listen(
-        (data) {},
-        onDone: () => _handleDisconnect(),
-        onError: (error) => _handleDisconnect(),
-      );
+        ioSocket.listen(
+          (data) {},
+          onDone: () => _handleDisconnect(),
+          onError: (error) => _handleDisconnect(),
+        );
+      } else {
+        // Platform Web Browser (Testing di Browser)
+        final webSocket = ws_impl.WebSocket(_wsUrl);
+        _socket = webSocket;
+
+        webSocket.onOpen.listen((event) {
+          connectionState.value = EspConnectionState.connected;
+        });
+
+        webSocket.onClose.listen((event) {
+          _handleDisconnect();
+        });
+
+        webSocket.onError.listen((event) {
+          _handleDisconnect();
+        });
+      }
     } catch (e) {
       _handleDisconnect();
     }
@@ -67,24 +89,49 @@ class EspWebSocketService {
     final g = (color.g * 255).round();
     final b = (color.b * 255).round();
 
-    _socket?.add('C:$r,$g,$b');
+    _send('C:$r,$g,$b');
   }
 
   // Pengiriman Kecerahan (Format "B:Val")
   void sendBrightness(int brightness) {
     if (connectionState.value != EspConnectionState.connected || _socket == null) return;
     final val = brightness.clamp(0, 255);
-    _socket?.add('B:$val');
+    _send('B:$val');
   }
 
   // Pengiriman Mode Efek (Format "M:ModeID")
   void sendMode(int modeId) {
     if (connectionState.value != EspConnectionState.connected || _socket == null) return;
-    _socket?.add('M:$modeId');
+    _send('M:$modeId');
+  }
+
+  // Pengiriman Kecepatan Animasi (Format "S:SpeedVal" - 10ms s/d 65535ms)
+  void sendSpeed(int speedMs) {
+    if (connectionState.value != EspConnectionState.connected || _socket == null) return;
+    final val = speedMs.clamp(10, 65535);
+    _send('S:$val');
+  }
+
+  void _send(String message) {
+    try {
+      if (!kIsWeb && _socket is io_impl.WebSocket) {
+        (_socket as io_impl.WebSocket).add(message);
+      } else if (kIsWeb && _socket != null) {
+        _socket.send(message);
+      }
+    } catch (e) {
+      _handleDisconnect();
+    }
   }
 
   void dispose() {
     _reconnectTimer?.cancel();
-    _socket?.close();
+    try {
+      if (!kIsWeb && _socket is io_impl.WebSocket) {
+        (_socket as io_impl.WebSocket).close();
+      } else if (kIsWeb && _socket != null) {
+        _socket.close();
+      }
+    } catch (e) {}
   }
 }

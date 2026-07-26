@@ -38,10 +38,13 @@ class ColorControlScreen extends StatefulWidget {
 }
 
 class _ColorControlScreenState extends State<ColorControlScreen> {
-  // Status Warna, Kecerahan, dan Mode Efek
+  // Status Warna, Kecerahan, Kecepatan, dan Mode Efek
   Color _selectedColor = const Color(0xFFFF3B30); // Warna Awal (Merah)
   double _brightness = 255.0; // Kecerahan 0 - 255
-  WS2812FXMode _selectedMode = kWS2812FXModes[0]; // Default Mode 0 (Static)
+  double _speed = 1000.0; // Kecepatan default 1000 ms (1 detik)
+
+  // Default Mode ke Mode 12 (Rainbow Cycle) sesuai permintaan
+  WS2812FXMode _selectedMode = kWS2812FXModes[12];
 
   final EspWebSocketService _espService = EspWebSocketService();
 
@@ -63,11 +66,16 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
     final int g = (_selectedColor.g * 255).round();
     final int b = (_selectedColor.b * 255).round();
 
-    // Format string HEX (#RRGGBB)
     final String hexCode =
         '#${r.toRadixString(16).padLeft(2, '0').toUpperCase()}'
         '${g.toRadixString(16).padLeft(2, '0').toUpperCase()}'
         '${b.toRadixString(16).padLeft(2, '0').toUpperCase()}';
+
+    // Format tampilan kecepatan (detik / milidetik)
+    final double speedInSec = _speed / 1000.0;
+    final String speedLabel = speedInSec >= 1.0
+        ? '${speedInSec.toStringAsFixed(1)} dt'
+        : '${_speed.round()} ms';
 
     return Scaffold(
       appBar: AppBar(
@@ -164,7 +172,6 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Lingkaran Preview Warna Aktif
                   AnimatedContainer(
                     duration: const Duration(milliseconds: 100),
                     width: 46,
@@ -183,7 +190,6 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  // Teks Kode Warna HEX & RGB
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -276,7 +282,71 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
 
               const SizedBox(height: 24),
 
-              // 4. DROPDOWN LIST EFEK ANIMASI WS2812FX SEAMLESS
+              // 4. SLIDER KECEPATAN ANIMASI (SPEED SLIDER: 10 ms s/d 65.000 ms)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.speed_rounded,
+                            size: 20,
+                            color: Colors.blue[600],
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Kecepatan Animasi',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF1D1B20),
+                            ),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        speedLabel,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey[800],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      activeTrackColor: Colors.blue[600],
+                      inactiveTrackColor: Colors.grey[200],
+                      thumbColor: Colors.blue[700],
+                      overlayColor: Colors.blue[100]?.withValues(alpha: 0.5),
+                      trackHeight: 8,
+                      thumbShape: const RoundSliderThumbShape(
+                        enabledThumbRadius: 11,
+                      ),
+                    ),
+                    child: Slider(
+                      value: _speed,
+                      min: 10,
+                      max: 65000,
+                      onChanged: (val) {
+                        setState(() {
+                          _speed = val;
+                        });
+                        _espService.sendSpeed(val.round());
+                      },
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // 5. DROPDOWN LIST EFEK ANIMASI WS2812FX SEAMLESS
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -299,7 +369,6 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  // Dropdown List Pilihan Efek
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
