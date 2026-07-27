@@ -52,12 +52,38 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
   void initState() {
     super.initState();
     _udpService.init();
+
+    // SINKRONISASI OTOMATIS SAAT APLIKASI DIBUKA / RESPON UDP MASUK
+    _udpService.espStateNotifier.addListener(_onEspStateReceived);
   }
 
   @override
   void dispose() {
+    _udpService.espStateNotifier.removeListener(_onEspStateReceived);
     _udpService.dispose();
     super.dispose();
+  }
+
+  void _onEspStateReceived() {
+    final state = _udpService.espStateNotifier.value;
+    if (state != null && mounted) {
+      setState(() {
+        if (state['color'] != null) _selectedColor = state['color'];
+        if (state['brightness'] != null) _brightness = state['brightness'];
+        if (state['modeId'] != null) {
+          final int mId = state['modeId'];
+          if (mId >= 0 && mId < kWS2812FXModes.length) {
+            _selectedMode = kWS2812FXModes[mId];
+          }
+        }
+        if (state['speedMs'] != null) {
+          final double speedMs = state['speedMs'];
+          // Konversi balik dari delayMs (3000ms - 100ms) ke persentase slider (0% - 100%)
+          final percent = ((3000 - speedMs) / 2900) * 100.0;
+          _speedPercent = percent.clamp(0.0, 100.0);
+        }
+      });
+    }
   }
 
   int _calculateDelayMs(double percent) {
@@ -101,39 +127,53 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
           ],
         ),
         actions: [
-          // BADGE STATUS UDP REAL-TIME (SELALU SIAP KIRIM INSTAN)
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                color: const Color(0xFFE8F5E9),
-                border: Border.all(
-                  color: const Color(0xFF34C759),
-                  width: 1.2,
-                ),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.bolt_rounded,
-                    size: 16,
-                    color: Color(0xFF34C759),
-                  ),
-                  SizedBox(width: 6),
-                  Text(
-                    'UDP Real-Time',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2E7D32),
+          // INDIKATOR STATUS KONEKSI TERHUBUNG / TERPUTUS AKTIF
+          ValueListenableBuilder<EspConnectionState>(
+            valueListenable: _udpService.connectionState,
+            builder: (context, state, child) {
+              final isConnected = state == EspConnectionState.connected;
+
+              return Padding(
+                padding: const EdgeInsets.only(right: 12.0),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => _udpService.queryState(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        color: isConnected ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
+                        border: Border.all(
+                          color: isConnected ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isConnected ? Icons.wifi_rounded : Icons.wifi_off_rounded,
+                            size: 16,
+                            color: isConnected ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isConnected ? 'Terhubung' : 'Terputus',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isConnected ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -350,7 +390,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
 
               const SizedBox(height: 24),
 
-              // 5. DROPDOWN LIST EFEK ANIMASI WS2812FX SEAMLESS
+              // 5. DROPDOWN LIST EFEK ANIMASI WS2812FX SEAMLESS (72 MODE SAKLEK PRESISI)
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -448,6 +488,14 @@ class _ColorWheelPickerState extends State<ColorWheelPicker> {
   void initState() {
     super.initState();
     _currentHsv = HSVColor.fromColor(widget.initialColor);
+  }
+
+  @override
+  void didUpdateWidget(covariant ColorWheelPicker oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialColor != widget.initialColor) {
+      _currentHsv = HSVColor.fromColor(widget.initialColor);
+    }
   }
 
   Offset _calculateThumbPosition(Size size) {
