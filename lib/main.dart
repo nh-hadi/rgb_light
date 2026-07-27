@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 
 import 'esp_udp_service.dart';
@@ -78,7 +79,6 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
         }
         if (state['speedMs'] != null) {
           final double speedMs = state['speedMs'];
-          // Konversi balik dari delayMs (3000ms - 100ms) ke persentase slider (0% - 100%)
           final percent = ((3000 - speedMs) / 2900) * 100.0;
           _speedPercent = percent.clamp(0.0, 100.0);
         }
@@ -89,6 +89,117 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
   int _calculateDelayMs(double percent) {
     final delay = 3000 - ((percent / 100.0) * 2900);
     return delay.round().clamp(100, 3000);
+  }
+
+  void _openWifiSettings() {
+    try {
+      AppSettings.openAppSettings(type: AppSettingsType.wifi);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Buka Pengaturan WiFi dari Menu HP Anda.')),
+      );
+    }
+  }
+
+  void _showManualIpDialog() {
+    final controller = TextEditingController(text: _udpService.currentTargetIp);
+    bool isTesting = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Row(
+                children: [
+                  Icon(Icons.router_rounded, color: Colors.blueAccent),
+                  SizedBox(width: 10),
+                  Text('Atur & Tes IP ESP', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Masukkan IP ESP8266 (Default AP: 192.168.4.1):',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'IP Address ESP',
+                      hintText: '192.168.4.1',
+                      prefixIcon: const Icon(Icons.lan_rounded),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: isTesting
+                      ? null
+                      : () async {
+                          setDialogState(() {
+                            isTesting = true;
+                          });
+
+                          final testIp = controller.text.trim();
+                          final bool success = await _udpService.testConnection(testIp);
+
+                          if (mounted) {
+                            setDialogState(() {
+                              isTesting = false;
+                            });
+
+                            Navigator.pop(dialogContext);
+
+                            if (success) {
+                              _udpService.updateTargetIp(testIp);
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: Colors.green[700],
+                                  content: Text('✅ Berhasil Terhubung ke ESP ($testIp)!'),
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(this.context).showSnackBar(
+                                SnackBar(
+                                  backgroundColor: Colors.red[700],
+                                  content: Text('❌ ESP ($testIp) Tidak Merespons. Cek Koneksi WiFi HP.'),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isTesting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Text('Tes & Simpan IP'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   @override
@@ -116,18 +227,32 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
             ),
             SizedBox(width: 8),
             Text(
-              'Smart Ambient Light',
+              'Smart Light',
               style: TextStyle(
                 color: Color(0xFF1D1B20),
                 fontWeight: FontWeight.w800,
-                fontSize: 19,
+                fontSize: 18,
                 letterSpacing: 0.2,
               ),
             ),
           ],
         ),
         actions: [
-          // INDIKATOR STATUS KONEKSI TERHUBUNG / TERPUTUS AKTIF
+          // TOMBOL BUKA PENGATURAN WIFI ANDROID
+          IconButton(
+            icon: const Icon(Icons.wifi_find_rounded, color: Colors.blueAccent),
+            tooltip: 'Buka Pengaturan WiFi HP',
+            onPressed: _openWifiSettings,
+          ),
+
+          // TOMBOL ATUR & TES IP MANUAL
+          IconButton(
+            icon: const Icon(Icons.settings_ethernet_rounded, color: Colors.purple),
+            tooltip: 'Atur & Tes IP ESP',
+            onPressed: _showManualIpDialog,
+          ),
+
+          // INDIKATOR KONEKSI UDP TERHUBUNG / TERPUTUS
           ValueListenableBuilder<EspConnectionState>(
             valueListenable: _udpService.connectionState,
             builder: (context, state, child) {
@@ -141,7 +266,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                     borderRadius: BorderRadius.circular(20),
                     onTap: () => _udpService.queryState(),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         color: isConnected ? const Color(0xFFE8F5E9) : const Color(0xFFFFEBEE),
@@ -155,14 +280,14 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
                         children: [
                           Icon(
                             isConnected ? Icons.wifi_rounded : Icons.wifi_off_rounded,
-                            size: 16,
+                            size: 15,
                             color: isConnected ? const Color(0xFF34C759) : const Color(0xFFFF3B30),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 4),
                           Text(
                             isConnected ? 'Terhubung' : 'Terputus',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.bold,
                               color: isConnected ? const Color(0xFF2E7D32) : const Color(0xFFC62828),
                             ),
@@ -390,7 +515,7 @@ class _ColorControlScreenState extends State<ColorControlScreen> {
 
               const SizedBox(height: 24),
 
-              // 5. DROPDOWN LIST EFEK ANIMASI WS2812FX SEAMLESS (72 MODE SAKLEK PRESISI)
+              // 5. DROPDOWN LIST EFEK ANIMASI WS2812FX SEAMLESS
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

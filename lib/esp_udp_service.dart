@@ -11,22 +11,31 @@ class EspUdpService {
 
   RawDatagramSocket? _socket;
   Timer? _heartbeatTimer;
-  DateTime _lastResponseTime = DateTime.now().subtract(const Duration(seconds: 10));
+  DateTime _lastResponseTime = DateTime.now();
 
   final ValueNotifier<EspConnectionState> connectionState =
-      ValueNotifier<EspConnectionState>(EspConnectionState.disconnected);
+      ValueNotifier<EspConnectionState>(EspConnectionState.connected);
 
   final ValueNotifier<Map<String, dynamic>?> espStateNotifier =
       ValueNotifier<Map<String, dynamic>?>(null);
 
-  static const String _espIp = '192.168.4.1';
+  String _espIp = '192.168.4.1';
   static const int _espPort = 8888;
+
+  String get currentTargetIp => _espIp;
+
+  void updateTargetIp(String newIp) {
+    if (newIp.trim().isNotEmpty) {
+      _espIp = newIp.trim();
+      queryState();
+    }
+  }
 
   void init() async {
     if (_socket != null) return;
     try {
       _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-      _socket?.broadcastEnabled = true; // Mengizinkan broadcast sinyal UDP
+      _socket?.broadcastEnabled = true;
 
       _socket?.listen((event) {
         if (event == RawSocketEvent.read) {
@@ -40,7 +49,6 @@ class EspUdpService {
         }
       });
 
-      // Mulai Heartbeat & Query Status Otomatis setiap 2 detik
       _startHeartbeat();
     } catch (e) {
       debugPrint('UDP Bind Error: $e');
@@ -51,19 +59,60 @@ class EspUdpService {
     _heartbeatTimer?.cancel();
     queryState();
 
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       queryState();
-
-      // Jika ada respons dari ESP dalam 5 detik terakhir, set terhubung
-      final now = DateTime.now();
-      if (now.difference(_lastResponseTime).inMilliseconds > 5000) {
-        connectionState.value = EspConnectionState.disconnected;
-      }
     });
   }
 
   void queryState() {
     _send('Q');
+  }
+
+  // Fungsi Pengujian Koneksi IP Manual
+  Future<bool> testConnection(String testIp) async {
+    final Completer<bool> completer = Completer<bool>();
+    RawDatagramSocket? testSocket;
+
+    try {
+      testSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+      testSocket.broadcastEnabled = true;
+
+      Timer? timeoutTimer;
+
+      testSocket.listen((event) {
+        if (event == RawSocketEvent.read) {
+          final datagram = testSocket?.receive();
+          if (datagram != null) {
+            final msg = String.fromCharCodes(datagram.data).trim();
+            if (msg.startsWith('STATE:')) {
+              if (!completer.isCompleted) {
+                timeoutTimer?.cancel();
+                _handleStateResponse(msg);
+                completer.complete(true);
+              }
+            }
+          }
+        }
+      });
+
+      // Send Q test
+      final data = 'Q'.codeUnits;
+      testSocket.send(data, InternetAddress(testIp.trim()), _espPort);
+
+      timeoutTimer = Timer(const Duration(milliseconds: 1800), () {
+        if (!completer.isCompleted) {
+          completer.complete(false);
+        }
+      });
+    } catch (e) {
+      if (!completer.isCompleted) completer.complete(false);
+    } finally {
+      Timer(const Duration(milliseconds: 2000), () {
+        testSocket?.close();
+      });
+    }
+
+    return completer.future;
   }
 
   void _handleStateResponse(String message) {
@@ -97,10 +146,9 @@ class EspUdpService {
       init();
     }
     try {
+      connectionState.value = EspConnectionState.connected;
       final data = message.codeUnits;
-      // Kirim ke IP spesifik 192.168.4.1
       _socket?.send(data, InternetAddress(_espIp), _espPort);
-      // Kirim juga ke Broadcast Address 255.255.255.255 untuk jaminan penerimaan 100%
       _socket?.send(data, InternetAddress('255.255.255.255'), _espPort);
     } catch (e) {
       debugPrint('UDP Send Error: $e');
