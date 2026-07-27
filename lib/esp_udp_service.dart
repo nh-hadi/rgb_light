@@ -26,6 +26,8 @@ class EspUdpService {
     if (_socket != null) return;
     try {
       _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+      _socket?.broadcastEnabled = true; // Mengizinkan broadcast sinyal UDP
+
       _socket?.listen((event) {
         if (event == RawSocketEvent.read) {
           final datagram = _socket?.receive();
@@ -47,15 +49,14 @@ class EspUdpService {
 
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
-    // Kirim Query pertama secara instan saat aplikasi dibuka
     queryState();
 
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       queryState();
 
-      // Cek apakah ESP memberikan respons dalam 3.5 detik terakhir
+      // Jika ada respons dari ESP dalam 5 detik terakhir, set terhubung
       final now = DateTime.now();
-      if (now.difference(_lastResponseTime).inMilliseconds > 3500) {
+      if (now.difference(_lastResponseTime).inMilliseconds > 5000) {
         connectionState.value = EspConnectionState.disconnected;
       }
     });
@@ -66,7 +67,6 @@ class EspUdpService {
   }
 
   void _handleStateResponse(String message) {
-    // Format: STATE:r,g,b,brightness,mode,speed
     try {
       final parts = message.substring(6).split(',');
       if (parts.length >= 6) {
@@ -98,13 +98,16 @@ class EspUdpService {
     }
     try {
       final data = message.codeUnits;
+      // Kirim ke IP spesifik 192.168.4.1
       _socket?.send(data, InternetAddress(_espIp), _espPort);
+      // Kirim juga ke Broadcast Address 255.255.255.255 untuk jaminan penerimaan 100%
+      _socket?.send(data, InternetAddress('255.255.255.255'), _espPort);
     } catch (e) {
       debugPrint('UDP Send Error: $e');
     }
   }
 
-  // Pengiriman Warna Real-Time via UDP (Tanpa Lag / Delay)
+  // Pengiriman Warna Real-Time via UDP
   void sendColor(Color color) {
     final r = (color.r * 255).round();
     final g = (color.g * 255).round();
