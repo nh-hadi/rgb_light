@@ -30,6 +30,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
   double _speedPercent = 70.0;
   WS2812FXMode _selectedMode = kWS2812FXModes[12];
   String _activePlayingAnimationId = '';
+  bool _isWheelDragging = false; // FLAG PENGUNCI HALAMAN SAAT MEMUTAR RODA WARNA
 
   final List<Map<String, dynamic>> _savedJsonAnimations = [
     {
@@ -66,7 +67,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
       builder: (context) {
         return AlertDialog(
           shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Row(
             children: [
               Icon(Icons.save_alt_rounded, color: widget.accentColor),
@@ -74,7 +75,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
               Text(
                 'Simpan Ke List (${widget.title})',
                 style:
-                    const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -83,45 +84,43 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
                   children: [
-                    CircleAvatar(radius: 12, backgroundColor: _selectedColor),
-                    const SizedBox(width: 8),
+                    CircleAvatar(radius: 14, backgroundColor: _selectedColor),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         'Mode: ${_selectedMode.name}\nTarget: ${widget.title}',
                         style: const TextStyle(
-                            fontSize: 11, fontWeight: FontWeight.bold),
+                            fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 14),
               TextField(
                 controller: nameController,
                 decoration: InputDecoration(
                   labelText: 'Nama Animasi',
-                  isDense: true,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               TextField(
                 controller: durationController,
                 keyboardType: TextInputType.number,
                 decoration: InputDecoration(
                   labelText: 'Durasi Berjalan (Detik)',
                   suffixText: 'Detik',
-                  isDense: true,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ],
@@ -136,7 +135,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                 backgroundColor: widget.accentColor,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                    borderRadius: BorderRadius.circular(12)),
               ),
               onPressed: () {
                 final name = nameController.text.trim();
@@ -307,16 +306,29 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
 
     return SafeArea(
       child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+        // KUNCI SCROLL HALAMAN SAAT JARI SENTUH / GESER RODA WARNA!
+        physics: _isWheelDragging
+            ? const NeverScrollableScrollPhysics()
+            : const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // RODA WARNA
+            // RODA WARNA DENGAN PENGUNCI DRAG
             Center(
               child: ColorWheelPicker(
                 initialColor: _selectedColor,
                 size: 250.0,
+                onDragStart: () {
+                  setState(() {
+                    _isWheelDragging = true;
+                  });
+                },
+                onDragEnd: () {
+                  setState(() {
+                    _isWheelDragging = false;
+                  });
+                },
                 onColorChanged: (color) {
                   setState(() {
                     _selectedColor = color;
@@ -659,7 +671,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
               onDelete: _deleteJsonAnimation,
             ),
 
-            const SizedBox(height: 80),
+            const SizedBox(height: 90),
           ],
         ),
       ),

@@ -5,6 +5,8 @@ class ColorWheelPicker extends StatefulWidget {
   final Color initialColor;
   final ValueChanged<Color> onColorChanged;
   final ValueChanged<Color>? onColorEnd;
+  final VoidCallback? onDragStart;
+  final VoidCallback? onDragEnd;
   final double size;
 
   const ColorWheelPicker({
@@ -12,6 +14,8 @@ class ColorWheelPicker extends StatefulWidget {
     required this.initialColor,
     required this.onColorChanged,
     this.onColorEnd,
+    this.onDragStart,
+    this.onDragEnd,
     this.size = 270.0,
   });
 
@@ -89,9 +93,20 @@ class _ColorWheelPickerState extends State<ColorWheelPicker> {
 
         return Listener(
           behavior: HitTestBehavior.opaque,
-          onPointerDown: (event) => _updateColorFromPosition(event.localPosition, size),
-          onPointerMove: (event) => _updateColorFromPosition(event.localPosition, size),
-          onPointerUp: (event) => _updateColorFromPosition(event.localPosition, size, isEnd: true),
+          onPointerDown: (event) {
+            widget.onDragStart?.call();
+            _updateColorFromPosition(event.localPosition, size);
+          },
+          onPointerMove: (event) {
+            _updateColorFromPosition(event.localPosition, size);
+          },
+          onPointerUp: (event) {
+            _updateColorFromPosition(event.localPosition, size, isEnd: true);
+            widget.onDragEnd?.call();
+          },
+          onPointerCancel: (event) {
+            widget.onDragEnd?.call();
+          },
           child: SizedBox(
             width: wheelSize,
             height: wheelSize,

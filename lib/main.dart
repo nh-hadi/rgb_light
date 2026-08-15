@@ -6,20 +6,18 @@ import 'screens/main_navigation_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. TAMPILKAN STATUS BAR & BAR NAVIGASI SISTEM HP SECARA NORMAL (STANDAR)
+  // MENGATUR HANYA BAR NAVIGASI SISTEM HP BAWAH YANG HILANG, STATUS BAR ATAS TETAP TAMPIL
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.manual,
-    overlays: SystemUiOverlay.values, // Status bar & Navigasi HP tetap tampil normal
+    overlays: [SystemUiOverlay.top], // Hanya tampilkan Status Bar Atas, Sembunyikan Navigasi Bawah HP!
   );
 
-  // 2. KUSTOMISASI WARNA STATUS BAR AGAR MONOKROM / WARNA LATAR APLIKASI
+  // KUSTOMISASI WARNA STATUS BAR ATAS
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor: Color(0xFFF8FAFC), // Warna sama persis dengan latar belakang app
+      statusBarColor: Color(0xFFF8FAFC), // Warna latar atas menyatu dengan aplikasi
       statusBarIconBrightness: Brightness.dark, // Ikon status bar gelap (jam, baterai)
       statusBarBrightness: Brightness.light,
-      systemNavigationBarColor: Color(0xFFF8FAFC),
-      systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
 
