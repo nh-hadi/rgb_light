@@ -87,11 +87,11 @@ class _ColorWheelPickerState extends State<ColorWheelPicker> {
         final size = Size(wheelSize, wheelSize);
         final thumbPos = _calculateThumbPosition(size);
 
-        return GestureDetector(
-          onPanStart: (details) => _updateColorFromPosition(details.localPosition, size),
-          onPanUpdate: (details) => _updateColorFromPosition(details.localPosition, size),
-          onPanEnd: (details) => widget.onColorEnd?.call(_currentHsv.toColor()),
-          onTapDown: (details) => _updateColorFromPosition(details.localPosition, size, isEnd: true),
+        return Listener(
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (event) => _updateColorFromPosition(event.localPosition, size),
+          onPointerMove: (event) => _updateColorFromPosition(event.localPosition, size),
+          onPointerUp: (event) => _updateColorFromPosition(event.localPosition, size, isEnd: true),
           child: SizedBox(
             width: wheelSize,
             height: wheelSize,

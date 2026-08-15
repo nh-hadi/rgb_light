@@ -6,18 +6,19 @@ import 'screens/main_navigation_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. MENGATUR MODE FULL SCREEN IMMERSIVE (NAVIGASI HP BAWAH SEMBUNYI OTOMATIS)
+  // 1. TAMPILKAN STATUS BAR & BAR NAVIGASI SISTEM HP SECARA NORMAL (STANDAR)
   SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.immersiveSticky,
+    SystemUiMode.manual,
+    overlays: SystemUiOverlay.values, // Status bar & Navigasi HP tetap tampil normal
   );
 
-  // 2. KUSTOMISASI WARNA STATUS BAR & BAR NAVIGASI HP (SISTEM)
+  // 2. KUSTOMISASI WARNA STATUS BAR AGAR MONOKROM / WARNA LATAR APLIKASI
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent, // Transparent / menyatu dengan latar
-      statusBarIconBrightness: Brightness.dark, // Ikon status bar gelap (jam, battery)
+      statusBarColor: Color(0xFFF8FAFC), // Warna sama persis dengan latar belakang app
+      statusBarIconBrightness: Brightness.dark, // Ikon status bar gelap (jam, baterai)
       statusBarBrightness: Brightness.light,
-      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarColor: Color(0xFFF8FAFC),
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
