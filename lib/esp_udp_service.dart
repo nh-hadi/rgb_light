@@ -39,18 +39,13 @@ class EspUdpService {
     }
   }
 
-  /// Inisialisasi socket UDP. Aman dipanggil berulang — akan skip jika socket
-  /// sudah aktif, atau reinit jika socket sudah tertutup/rusak.
+  /// Inisialisasi socket UDP. Aman dipanggil berulang.
   void init() async {
-    // Jika socket sudah ada dan masih aktif, skip
     if (_socket != null) {
       try {
-        // Probe: coba kirim 0 byte untuk deteksi socket masih valid
         _socket!.send(const [], InternetAddress.anyIPv4, 0);
-        // Tidak error = socket masih valid, sudah cukup
         return;
       } catch (_) {
-        // Socket sudah mati — tutup dan buat ulang di bawah
         _socket?.close();
         _socket = null;
       }
@@ -58,7 +53,7 @@ class EspUdpService {
 
     try {
       _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-      _socket?.broadcastEnabled = false; // Nonaktifkan broadcast — hanya kirim ke IP spesifik
+      _socket?.broadcastEnabled = false;
 
       _socket?.listen(
         (event) {
@@ -74,7 +69,6 @@ class EspUdpService {
         },
         onError: (e) {
           debugPrint('UDP Socket Error: $e');
-          // Socket error — tutup dan izinkan reinit di heartbeat berikutnya
           _socket?.close();
           _socket = null;
           connectionState.value = EspConnectionState.disconnected;
@@ -96,7 +90,6 @@ class EspUdpService {
 
   void _startHeartbeat() {
     _heartbeatTimer?.cancel();
-    // Langsung query pertama kali saat init
     queryState();
 
     _heartbeatTimer = Timer.periodic(_heartbeatInterval, (_) {
@@ -105,12 +98,11 @@ class EspUdpService {
     });
   }
 
-  /// Cek apakah ESP masih merespons. Jika timeout → set disconnected.
   void _checkConnectionTimeout() {
     if (connectionState.value == EspConnectionState.connected) {
       final elapsed = DateTime.now().difference(_lastResponseTime);
       if (elapsed > _connectionTimeout) {
-        debugPrint('UDP: Timeout — tidak ada response dari ESP selama ${elapsed.inSeconds}s');
+        debugPrint('UDP: Timeout — tidak ada response selama ${elapsed.inSeconds}s');
         connectionState.value = EspConnectionState.disconnected;
       }
     }
@@ -120,7 +112,6 @@ class EspUdpService {
     _send('Q');
   }
 
-  /// Fungsi pengujian koneksi IP manual (dari dialog atur IP)
   Future<bool> testConnection(String testIp) async {
     final Completer<bool> completer = Completer<bool>();
     RawDatagramSocket? testSocket;
@@ -147,14 +138,11 @@ class EspUdpService {
         }
       });
 
-      // Kirim query test ke IP yang diuji
       final data = 'Q'.codeUnits;
       testSocket.send(data, InternetAddress(testIp.trim()), _espPort);
 
       timeoutTimer = Timer(const Duration(milliseconds: 1800), () {
-        if (!completer.isCompleted) {
-          completer.complete(false);
-        }
+        if (!completer.isCompleted) completer.complete(false);
       });
     } catch (e) {
       if (!completer.isCompleted) completer.complete(false);
@@ -171,22 +159,14 @@ class EspUdpService {
     try {
       final parts = message.substring(6).split(',');
       if (parts.length >= 6) {
-        final r          = int.parse(parts[0]);
-        final g          = int.parse(parts[1]);
-        final b          = int.parse(parts[2]);
-        final brightness = int.parse(parts[3]);
-        final modeId     = int.parse(parts[4]);
-        final speedMs    = int.parse(parts[5]);
-
-        // ✅ Status connected HANYA diupdate saat benar-benar ada response
         _lastResponseTime = DateTime.now();
         connectionState.value = EspConnectionState.connected;
 
         espStateNotifier.value = {
-          'color':      Color.fromARGB(255, r, g, b),
-          'brightness': brightness.toDouble(),
-          'modeId':     modeId,
-          'speedMs':    speedMs.toDouble(),
+          'color':      Color.fromARGB(255, int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])),
+          'brightness': int.parse(parts[3]).toDouble(),
+          'modeId':     int.parse(parts[4]),
+          'speedMs':    int.parse(parts[5]).toDouble(),
         };
       }
     } catch (e) {
@@ -195,57 +175,36 @@ class EspUdpService {
   }
 
   void _send(String message) {
-    // Jika socket null atau mati, coba reinit
     if (_socket == null) {
       init();
       return;
     }
-
-    // ✅ Jangan set connectionState = connected di sini!
-    // Status hanya berubah berdasarkan RESPONSE dari ESP, bukan saat kirim.
     try {
-      final data = message.codeUnits;
-      // Kirim HANYA ke IP spesifik ESP — tidak ada broadcast 255.255.255.255
-      _socket?.send(data, InternetAddress(_espIp), _espPort);
+      _socket?.send(message.codeUnits, InternetAddress(_espIp), _espPort);
     } catch (e) {
       debugPrint('UDP Send Error: $e');
-      // Socket error saat kirim — tandai socket mati
       _socket?.close();
       _socket = null;
       connectionState.value = EspConnectionState.disconnected;
     }
   }
 
-  // Pengiriman Warna Real-Time via UDP
+  // Strip tunggal — semua perintah tanpa prefix
   void sendColor(Color color) {
     final r = (color.r * 255).round();
     final g = (color.g * 255).round();
     final b = (color.b * 255).round();
     _send('C:$r,$g,$b');
   }
-
   void sendColorDirect(Color color) => sendColor(color);
 
-  // Pengiriman Kecerahan Real-Time via UDP
-  void sendBrightness(int brightness) {
-    final val = brightness.clamp(0, 255);
-    _send('B:$val');
-  }
-
+  void sendBrightness(int brightness) => _send('B:${brightness.clamp(0, 255)}');
   void sendBrightnessDirect(int brightness) => sendBrightness(brightness);
 
-  // Pengiriman Kecepatan Real-Time via UDP
-  void sendSpeed(int speedMs) {
-    final val = speedMs.clamp(100, 3000);
-    _send('S:$val');
-  }
-
+  void sendSpeed(int speedMs) => _send('S:${speedMs.clamp(100, 3000)}');
   void sendSpeedDirect(int speedMs) => sendSpeed(speedMs);
 
-  // Pengiriman Mode Efek Real-Time via UDP
-  void sendMode(int modeId) {
-    _send('M:$modeId');
-  }
+  void sendMode(int modeId) => _send('M:$modeId');
 
   void dispose() {
     _heartbeatTimer?.cancel();
