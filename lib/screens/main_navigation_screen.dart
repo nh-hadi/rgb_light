@@ -1,5 +1,6 @@
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../esp_udp_service.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
@@ -224,6 +225,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       backgroundColor: const Color(0xFFF8FAFC),
       extendBody: true,
       appBar: AppBar(
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          statusBarBrightness: Brightness.light,
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
