@@ -6,13 +6,12 @@ import 'screens/main_navigation_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // MENGATUR HANYA BAR NAVIGASI SISTEM HP BAWAH YANG HILANG, STATUS BAR ATAS TETAP TAMPIL
+  // MENGATUR MODE IMMERSIVE STICKY: NAVIGASI BISTEM HP TIDAK AKAN MUNCUL SAAT LAYAR DISENTUH!
   SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.manual,
-    overlays: [SystemUiOverlay.top], // Hanya tampilkan Status Bar Atas, Sembunyikan Navigasi Bawah HP!
+    SystemUiMode.immersiveSticky,
   );
 
-  // KUSTOMISASI WARNA STATUS BAR ATAS
+  // KUSTOMISASI STATUS BAR ATAS
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Color(0xFFF8FAFC), // Warna latar atas menyatu dengan aplikasi

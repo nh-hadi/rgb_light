@@ -4,9 +4,7 @@ class JsonAnimationsPanel extends StatelessWidget {
   final String title;
   final Color accentColor;
   final List<Map<String, dynamic>> savedAnimations;
-  final String activePlayingId;
-  final Function(Map<String, dynamic>) onPlay;
-  final VoidCallback onStop;
+  final double globalBrightness;
   final Function(Map<String, dynamic>) onEdit;
   final Function(String) onDelete;
 
@@ -15,22 +13,22 @@ class JsonAnimationsPanel extends StatelessWidget {
     required this.title,
     required this.accentColor,
     required this.savedAnimations,
-    required this.activePlayingId,
-    required this.onPlay,
-    required this.onStop,
+    required this.globalBrightness,
     required this.onEdit,
     required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
+    final String brightPercent = '${((globalBrightness / 255.0) * 100).round()}%';
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!, width: 1),
+        border: Border.all(color: Colors.grey[200]!, width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -41,108 +39,148 @@ class JsonAnimationsPanel extends StatelessWidget {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // HEADER PANEL COMPACT
+          // HEADER PANEL COMPACT WITH GLOBAL BRIGHTNESS BADGE
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  Icon(Icons.video_library_rounded, color: accentColor, size: 18),
+                  Icon(Icons.video_library_rounded, color: accentColor, size: 17),
                   const SizedBox(width: 6),
                   Text(
                     'Daftar Animasi ($title)',
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 13.5,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1D1B20),
+                      color: Color(0xFF1E293B),
                     ),
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${savedAnimations.length} Item',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: accentColor,
+              Row(
+                children: [
+                  // BADGE KECERAHAN GLOBAL MASTER
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.wb_sunny_rounded, size: 11, color: Color(0xFFD97706)),
+                        const SizedBox(width: 3),
+                        Text(
+                          brightPercent,
+                          style: const TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFD97706),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                  // BADGE JUMLAH ITEM
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: accentColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${savedAnimations.length} Item',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: accentColor,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
 
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
 
           if (savedAnimations.isEmpty)
             Center(
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
+                padding: const EdgeInsets.symmetric(vertical: 10),
                 child: Text(
                   'Belum ada animasi tersimpan di $title',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey[500]),
                 ),
               ),
             )
           else
             Column(
               children: savedAnimations.map((anim) {
-                final bool isActive = activePlayingId == anim['id'];
+                final color = anim['color'] is Color
+                    ? anim['color'] as Color
+                    : Colors.purpleAccent;
+
                 return Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: isActive
-                        ? accentColor.withValues(alpha: 0.08)
-                        : Colors.grey[50],
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: isActive ? accentColor : Colors.grey[200]!,
-                      width: isActive ? 1.2 : 1,
+                      color: const Color(0xFFE2E8F0),
+                      width: 1,
                     ),
                   ),
                   child: Row(
                     children: [
-                      // BADGE WARNA ITEM
-                      CircleAvatar(
-                        radius: 14,
-                        backgroundColor:
-                            (anim['color'] as Color).withValues(alpha: 0.2),
-                        child: CircleAvatar(
-                          radius: 8,
-                          backgroundColor: anim['color'] as Color,
+                      // BADGE WARNA ITEM RINGKAS
+                      Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: color,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.35),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
 
-                      // INFORMASI ANIMASI RINGKAS
+                      // INFORMASI ANIMASI RINGKAS & MEWAH
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              anim['name'],
+                              anim['name'] ?? 'Animasi',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 13,
+                                fontSize: 12.5,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF1D1B20),
+                                color: Color(0xFF0F172A),
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 1),
                             Text(
-                              '${anim['modeName']} • ${anim['duration']}',
+                              '${anim['modeName'] ?? ''} • ${anim['speed'] ?? '70%'} • ${anim['duration'] ?? '10s'}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w500,
                                 color: Colors.grey[600],
                               ),
                             ),
@@ -150,58 +188,32 @@ class JsonAnimationsPanel extends StatelessWidget {
                         ),
                       ),
 
-                      // TOMBOL ACTION: PLAY / EDIT / DELETE
+                      // TOMBOL ACTION: EDIT & DELETE RINGKAS
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // PLAY / STOP
                           InkWell(
-                            borderRadius: BorderRadius.circular(20),
-                            onTap: () {
-                              if (isActive) {
-                                onStop();
-                              } else {
-                                onPlay(anim);
-                              }
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.all(4.0),
-                              child: Icon(
-                                isActive
-                                    ? Icons.stop_circle_rounded
-                                    : Icons.play_circle_fill_rounded,
-                                color: isActive ? Colors.redAccent : Colors.green[600],
-                                size: 24,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-
-                          // EDIT BUTTON
-                          InkWell(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             onTap: () => onEdit(anim),
                             child: const Padding(
                               padding: EdgeInsets.all(4.0),
                               child: Icon(
                                 Icons.edit_rounded,
                                 color: Colors.blueAccent,
-                                size: 18,
+                                size: 16,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 4),
-
-                          // DELETE BUTTON
+                          const SizedBox(width: 2),
                           InkWell(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(16),
                             onTap: () => onDelete(anim['id']),
                             child: const Padding(
                               padding: EdgeInsets.all(4.0),
                               child: Icon(
                                 Icons.delete_outline_rounded,
                                 color: Colors.redAccent,
-                                size: 18,
+                                size: 16,
                               ),
                             ),
                           ),

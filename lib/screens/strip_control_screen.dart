@@ -31,6 +31,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
   WS2812FXMode _selectedMode = kWS2812FXModes[12];
   String _activePlayingAnimationId = '';
   bool _isWheelDragging = false; // FLAG PENGUNCI HALAMAN SAAT MEMUTAR RODA WARNA
+  bool _isPreviewMode = true; // SAKELAR TOGGLE MODE LIVE PREVIEW
 
   final List<Map<String, dynamic>> _savedJsonAnimations = [
     {
@@ -62,109 +63,261 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
     final nameController = TextEditingController(text: _selectedMode.name);
     final durationController = TextEditingController(text: '10');
 
-    showDialog(
+    final int r = (_selectedColor.r * 255).round();
+    final int g = (_selectedColor.g * 255).round();
+    final int b = (_selectedColor.b * 255).round();
+    final String hexCode =
+        '#${r.toRadixString(16).padLeft(2, '0').toUpperCase()}'
+        '${g.toRadixString(16).padLeft(2, '0').toUpperCase()}'
+        '${b.toRadixString(16).padLeft(2, '0').toUpperCase()}';
+
+    final String brightPercent = '${((_brightness / 255.0) * 100).round()}%';
+    final String speedPercent = '${_speedPercent.round()}%';
+
+    showGeneralDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              Icon(Icons.save_alt_rounded, color: widget.accentColor),
-              const SizedBox(width: 8),
-              Text(
-                'Simpan Ke List (${widget.title})',
-                style:
-                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) => const SizedBox(),
+      transitionBuilder: (context, anim1, anim2, child) {
+        final scale = Curves.easeOutBack.transform(anim1.value);
+        return Transform.scale(
+          scale: scale,
+          child: Opacity(
+            opacity: anim1.value.clamp(0.0, 1.0),
+            child: Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 380),
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    CircleAvatar(radius: 14, backgroundColor: _selectedColor),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Mode: ${_selectedMode.name}\nTarget: ${widget.title}',
-                        style: const TextStyle(
-                            fontSize: 12, fontWeight: FontWeight.bold),
+                    // HEADER BERWARNA GRADIENT
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [widget.accentColor, widget.accentColor.withValues(alpha: 0.7)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: widget.accentColor.withValues(alpha: 0.35),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(Icons.bookmark_add_rounded, color: Colors.white, size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Simpan Animasi JSON',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF0F172A)),
+                              ),
+                              Text(
+                                widget.title,
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: widget.accentColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // COMPACT VIBRANT PARAMETER BADGES (CARD WARNA-WARNI RINGKAS)
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              // COLOR BADGE WITH GLOW
+                              Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _selectedColor,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: _selectedColor.withValues(alpha: 0.5),
+                                      blurRadius: 8,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _selectedMode.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[200],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  hexCode,
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF475569)),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              // SPEED BADGE (PER ANIMATION)
+                              Expanded(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEFF6FF),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(color: const Color(0xFFBFDBFE)),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.speed_rounded, size: 13, color: Color(0xFF2563EB)),
+                                      const SizedBox(width: 4),
+                                      Text('Kecepatan: $speedPercent', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF2563EB))),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // GLOBAL BRIGHTNESS NOTICE
+                              Container(
+                                padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFFFBEB),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: const Color(0xFFFDE68A)),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.wb_sunny_rounded, size: 13, color: Color(0xFFD97706)),
+                                    SizedBox(width: 4),
+                                    Text('Kecerahan: Global', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    // INPUT FORMS COMPACT
+                    TextField(
+                      controller: nameController,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        labelText: 'Nama Animasi',
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.label_outline_rounded, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    TextField(
+                      controller: durationController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        labelText: 'Durasi Berjalan',
+                        suffixText: 'Detik',
+                        isDense: true,
+                        prefixIcon: const Icon(Icons.timer_outlined, size: 18),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // ACTION BUTTONS
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: widget.accentColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 3,
+                          ),
+                          icon: const Icon(Icons.save_alt_rounded, size: 16),
+                          onPressed: () {
+                            final name = nameController.text.trim();
+                            final durSec = durationController.text.trim();
+                            if (name.isNotEmpty) {
+                              setState(() {
+                                _savedJsonAnimations.add({
+                                  'id': DateTime.now().millisecondsSinceEpoch.toString(),
+                                  'name': name,
+                                  'modeName': _selectedMode.name,
+                                  'duration': '$durSec Detik',
+                                  'color': _selectedColor,
+                                  'speed': speedPercent,
+                                  'brightness': brightPercent,
+                                });
+                              });
+                            }
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: Colors.green[700],
+                                content: Text('💾 Animasi "$name" Disimpan ke List JSON!'),
+                              ),
+                            );
+                          },
+                          label: const Text('Simpan Ke List', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: nameController,
-                decoration: InputDecoration(
-                  labelText: 'Nama Animasi',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: durationController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  labelText: 'Durasi Berjalan (Detik)',
-                  suffixText: 'Detik',
-                  border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ],
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: widget.accentColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: () {
-                final name = nameController.text.trim();
-                final durSec = durationController.text.trim();
-                if (name.isNotEmpty) {
-                  setState(() {
-                    _savedJsonAnimations.add({
-                      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                      'name': name,
-                      'modeName': _selectedMode.name,
-                      'duration': '$durSec Detik',
-                      'color': _selectedColor,
-                      'speed': '${_speedPercent.round()}%',
-                      'brightness': '${((_brightness / 255) * 100).round()}%',
-                    });
-                  });
-                }
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    backgroundColor: Colors.green[700],
-                    content: Text(
-                        '💾 Animasi "$name" Disimpan di ${widget.title}!'),
-                  ),
-                );
-              },
-              child: const Text('Simpan Ke List'),
-            ),
-          ],
         );
       },
     );
@@ -314,90 +467,268 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // RODA WARNA DENGAN PENGUNCI DRAG
-            Center(
-              child: ColorWheelPicker(
-                initialColor: _selectedColor,
-                size: 250.0,
-                onDragStart: () {
-                  setState(() {
-                    _isWheelDragging = true;
-                  });
-                },
-                onDragEnd: () {
-                  setState(() {
-                    _isWheelDragging = false;
-                  });
-                },
-                onColorChanged: (color) {
-                  setState(() {
-                    _selectedColor = color;
-                  });
-                  widget.udpService.sendColor(color);
-                },
-                onColorEnd: (color) {
-                  widget.udpService.sendColorDirect(color);
-                },
-              ),
-            ),
-
-            const SizedBox(height: 18),
-
-            // KOTAK PREVIEW WARNA
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 100),
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _selectedColor,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _selectedColor.withValues(alpha: 0.4),
-                        blurRadius: 14,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      hexCode,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
-                        color: Color(0xFF1D1B20),
-                      ),
-                    ),
-                    Text(
-                      'RGB: $r, $g, $b',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey[600],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // PANEL KECERAHAN & KECEPATAN (SESUAI GAMBAR DENGAN BADGE PIL & CARD)
+            // PANEL RODA WARNA (WRAPPER CARD MODERN & SLEEK)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey[200]!, width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // HEADER PANEL RODA WARNA WITH PREVIEW MODE SWITCH
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: _selectedColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.palette_rounded,
+                              size: 18,
+                              color: _selectedColor,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Warna LED',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      // TOMBOL SWITCH MODE PREVIEW DI KANAN HEADER PANEL
+                      InkWell(
+                        borderRadius: BorderRadius.circular(20),
+                        onTap: () {
+                          setState(() {
+                            _isPreviewMode = !_isPreviewMode;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              duration: const Duration(seconds: 1),
+                              content: Text(
+                                _isPreviewMode
+                                    ? '👁️ Mode Live Preview Aktif'
+                                    : '▶️ Mode Playlist Animasi Aktif',
+                              ),
+                            ),
+                          );
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 250),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: _isPreviewMode
+                                ? const Color(0xFF0284C7).withValues(alpha: 0.12)
+                                : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: _isPreviewMode
+                                  ? const Color(0xFF0284C7)
+                                  : Colors.grey[300]!,
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _isPreviewMode
+                                    ? Icons.remove_red_eye_rounded
+                                    : Icons.play_circle_outline_rounded,
+                                size: 15,
+                                color: _isPreviewMode
+                                    ? const Color(0xFF0284C7)
+                                    : Colors.grey[600],
+                              ),
+                              const SizedBox(width: 5),
+                              Text(
+                                _isPreviewMode ? 'Preview ON' : 'Preview OFF',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isPreviewMode
+                                      ? const Color(0xFF0284C7)
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // RODA WARNA DENGAN PENGUNCI DRAG
+                  Center(
+                    child: ColorWheelPicker(
+                      initialColor: _selectedColor,
+                      size: 240.0,
+                      onDragStart: () {
+                        setState(() {
+                          _isWheelDragging = true;
+                        });
+                      },
+                      onDragEnd: () {
+                        setState(() {
+                          _isWheelDragging = false;
+                        });
+                      },
+                      onColorChanged: (color) {
+                        setState(() {
+                          _selectedColor = color;
+                        });
+                        widget.udpService.sendColor(color);
+                      },
+                      onColorEnd: (color) {
+                        widget.udpService.sendColorDirect(color);
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // KOTAK PREVIEW WARNA AKTIF (MENGAPIT KODE HEX & RGB)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 100),
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _selectedColor,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _selectedColor.withValues(alpha: 0.4),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            hexCode,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.0,
+                              color: Color(0xFF1E293B),
+                            ),
+                          ),
+                          Text(
+                            'RGB: $r, $g, $b',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 14),
+
+                  // PRESET WARNA CEPAT (PALET WARNA FAVORIT)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: const [
+                        Color(0xFFFF3B30), // Red
+                        Color(0xFFFF9500), // Orange
+                        Color(0xFFFFCC00), // Yellow
+                        Color(0xFF34C759), // Green
+                        Color(0xFF5AC8FA), // Cyan
+                        Color(0xFF007AFF), // Blue
+                        Color(0xFFAF52DE), // Purple
+                        Color(0xFFFF2D55), // Pink
+                        Color(0xFFFFFFFF), // White
+                      ].map((color) {
+                        final bool isSelected = _selectedColor.value == color.value;
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _selectedColor = color;
+                            });
+                            widget.udpService.sendColor(color);
+                            widget.udpService.sendColorDirect(color);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: isSelected ? 32 : 28,
+                            height: isSelected ? 32 : 28,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: color,
+                              border: Border.all(
+                                color: isSelected ? widget.accentColor : Colors.grey[300]!,
+                                width: isSelected ? 2.5 : 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withValues(alpha: isSelected ? 0.5 : 0.2),
+                                  blurRadius: isSelected ? 8 : 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: isSelected
+                                ? Icon(
+                                    Icons.check_rounded,
+                                    size: 16,
+                                    color: color.computeLuminance() > 0.6
+                                        ? Colors.black
+                                        : Colors.white,
+                                  )
+                                : null,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // PANEL KECERAHAN & KECEPATAN (COMPACT HIGH DENSITY)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey[200]!, width: 1.2),
                 boxShadow: [
                   BoxShadow(
@@ -416,56 +747,106 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFFBEB),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(
                               Icons.wb_sunny_rounded,
-                              size: 18,
+                              size: 16,
                               color: Color(0xFFD97706),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           const Text(
                             'Kecerahan LED',
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF1E293B),
                             ),
                           ),
                         ],
                       ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFBEB),
-                          border: Border.all(color: const Color(0xFFFDE68A)),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          '${((_brightness / 255.0) * 100).round()}%',
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFFD97706),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFFBEB),
+                              border: Border.all(color: const Color(0xFFFDE68A)),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '${((_brightness / 255.0) * 100).round()}%',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFFD97706),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 6),
+                          // TOMBOL EKSPLISIT SIMPAN KECERAHAN KE MEMORI ESP8266
+                          InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: () {
+                              widget.udpService.sendBrightnessDirect(_brightness.round());
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  duration: const Duration(seconds: 2),
+                                  backgroundColor: Colors.amber[800],
+                                  content: Text(
+                                    '💾 Kecerahan Global (${((_brightness / 255.0) * 100).round()}%) Disimpan di ESP8266!',
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFD97706),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFFD97706).withValues(alpha: 0.3),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.save_rounded, size: 12, color: Colors.white),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'Simpan',
+                                    style: TextStyle(
+                                      fontSize: 10.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 2),
                   SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       activeTrackColor: const Color(0xFFF59E0B),
                       inactiveTrackColor: const Color(0xFFF1F5F9),
                       thumbColor: const Color(0xFFD97706),
                       overlayColor: const Color(0xFFFDE68A).withValues(alpha: 0.5),
-                      trackHeight: 10,
+                      trackHeight: 6,
                       thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 10,
+                        enabledThumbRadius: 8,
                       ),
                     ),
                     child: Slider(
@@ -485,8 +866,8 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                   ),
 
                   const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 10),
-                    child: Divider(color: Color(0xFFF1F5F9), height: 1, thickness: 1.2),
+                    padding: EdgeInsets.symmetric(vertical: 4),
+                    child: Divider(color: Color(0xFFF1F5F9), height: 1, thickness: 1),
                   ),
 
                   // 2. KECEPATAN ANIMASI ROW
@@ -496,22 +877,22 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(8),
+                            padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(
                               Icons.speed_rounded,
-                              size: 18,
+                              size: 16,
                               color: Color(0xFF2563EB),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          const SizedBox(width: 8),
                           const Text(
                             'Kecepatan Animasi',
                             style: TextStyle(
-                              fontSize: 15,
+                              fontSize: 14,
                               fontWeight: FontWeight.bold,
                               color: Color(0xFF1E293B),
                             ),
@@ -519,16 +900,16 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                         ],
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEFF6FF),
                           border: Border.all(color: const Color(0xFFBFDBFE)),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           '${_speedPercent.round()}%',
                           style: const TextStyle(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w800,
                             color: Color(0xFF2563EB),
                           ),
@@ -536,16 +917,16 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 2),
                   SliderTheme(
                     data: SliderTheme.of(context).copyWith(
                       activeTrackColor: const Color(0xFF3B82F6),
                       inactiveTrackColor: const Color(0xFFF1F5F9),
                       thumbColor: const Color(0xFF2563EB),
                       overlayColor: const Color(0xFFBFDBFE).withValues(alpha: 0.5),
-                      trackHeight: 10,
+                      trackHeight: 6,
                       thumbShape: const RoundSliderThumbShape(
-                        enabledThumbRadius: 10,
+                        enabledThumbRadius: 8,
                       ),
                     ),
                     child: Slider(
@@ -657,16 +1038,14 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // PANEL DAFTAR ANIMASI JSON COMPACT + EDIT
+            // PANEL DAFTAR ANIMASI JSON COMPACT (KHUSUS EDIT & DELETE)
             JsonAnimationsPanel(
               title: widget.title,
               accentColor: widget.accentColor,
               savedAnimations: _savedJsonAnimations,
-              activePlayingId: _activePlayingAnimationId,
-              onPlay: _playJsonAnimation,
-              onStop: _stopJsonAnimation,
+              globalBrightness: _brightness,
               onEdit: _showEditAnimationDialog,
               onDelete: _deleteJsonAnimation,
             ),
