@@ -12,11 +12,10 @@ class DevelopmentPlaceholderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 72, 24, 95),
+        child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
@@ -88,7 +87,6 @@ class DevelopmentPlaceholderScreen extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 }

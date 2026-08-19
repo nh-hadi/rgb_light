@@ -1,16 +1,56 @@
+import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../services/esp_udp_service.dart';
-import 'wifi_settings_dialog.dart';
+import '../esp_udp_service.dart';
 
-class RtcHeader extends StatelessWidget {
-  final DateTime now;
+class RtcHeader extends StatefulWidget {
+  final DateTime? now;
   final EspUdpService udpService;
+  final VoidCallback? onWifiTap;
 
   const RtcHeader({
     super.key,
-    required this.now,
+    this.now,
     required this.udpService,
+    this.onWifiTap,
   });
+
+  @override
+  State<RtcHeader> createState() => _RtcHeaderState();
+}
+
+class _RtcHeaderState extends State<RtcHeader> {
+  Timer? _timer;
+  late DateTime _currentTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTime = widget.now ?? DateTime.now();
+    if (widget.now == null) {
+      _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) {
+          setState(() {
+            _currentTime = DateTime.now();
+          });
+        }
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant RtcHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.now != null) {
+      _currentTime = widget.now!;
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   String _getFormattedFullDate(DateTime dateTime) {
     const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
@@ -25,6 +65,7 @@ class RtcHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final now = _currentTime;
     final hour   = now.hour.toString().padLeft(2, '0');
     final minute = now.minute.toString().padLeft(2, '0');
     final second = now.second.toString().padLeft(2, '0');
@@ -33,7 +74,6 @@ class RtcHeader extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Skala berdasarkan lebar layar (referensi: 360px)
         final w = constraints.maxWidth;
         final scale = (w / 360).clamp(0.72, 1.0);
 
@@ -48,14 +88,14 @@ class RtcHeader extends StatelessWidget {
         final gap        = 6.0 * scale;
 
         return Container(
-          margin: EdgeInsets.fromLTRB(12, 10 * scale, 12, 0),
+          margin: EdgeInsets.fromLTRB(12, 10 * scale, 12, 6 * scale),
           padding: EdgeInsets.symmetric(
             horizontal: 10 * scale,
             vertical: 6 * scale,
           ),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F6FC), // Warna terang (Light Theme)
-            borderRadius: BorderRadius.circular(30), // Kapsul membulat penuh
+            color: const Color(0xFFF4F6FC),
+            borderRadius: BorderRadius.circular(30),
             border: Border.all(color: const Color(0xFFE2E8F5), width: 1.2),
             boxShadow: [
               BoxShadow(
@@ -100,7 +140,7 @@ class RtcHeader extends StatelessWidget {
 
               SizedBox(width: gap),
 
-              // ── TENGAH: DATE + TIME PILLS (FittedBox auto-scale) ─
+              // ── TENGAH: DATE + TIME PILLS ───────────────────
               Expanded(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
@@ -187,24 +227,30 @@ class RtcHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   ValueListenableBuilder<EspConnectionState>(
-                    valueListenable: udpService.connectionState,
+                    valueListenable: widget.udpService.connectionState,
                     builder: (context, state, _) {
                       final isConnected = state == EspConnectionState.connected;
                       return Container(
-                        width: 7 * scale,
-                        height: 7 * scale,
+                        width: 8 * scale,
+                        height: 8 * scale,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: isConnected
                               ? const Color(0xFF10B981)
                               : const Color(0xFFEF4444),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (isConnected ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.4),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
                       );
                     },
                   ),
                   SizedBox(width: 5 * scale),
                   GestureDetector(
-                    onTap: () => openWifiSettingsDialog(context, udpService),
+                    onTap: widget.onWifiTap,
                     child: Container(
                       padding: EdgeInsets.all(5 * scale),
                       decoration: BoxDecoration(

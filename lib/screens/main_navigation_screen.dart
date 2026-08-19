@@ -1,9 +1,11 @@
+import 'dart:ui';
 import 'package:app_settings/app_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../esp_udp_service.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
+import '../widgets/header.dart';
 import 'placeholder_screen.dart';
 import 'strip_control_screen.dart';
 
@@ -22,6 +24,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _udpService.init();
+
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.top],
+    );
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarDividerColor: Colors.transparent,
+      ),
+    );
   }
 
   @override
@@ -38,6 +54,54 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         const SnackBar(content: Text('Buka Pengaturan WiFi dari Menu HP Anda.')),
       );
     }
+  }
+
+  void _showWifiOptionsModal() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.settings_ethernet_rounded, color: Color(0xFF0284C7)),
+                  title: const Text('Atur & Tes IP ESP', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Ubah alamat IP koneksi UDP'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showManualIpDialog();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.wifi_find_rounded, color: Color(0xFF2563EB)),
+                  title: const Text('Pengaturan WiFi HP', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Buka menu pengaturan WiFi perangkat'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openWifiSettings();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showManualIpDialog() {
@@ -213,129 +277,59 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
     ];
 
-    final String appBarTitle = switch (_currentIndex) {
-      0 => 'Lampu Jam Utama (D4)',
-      1 => 'Variasi Nama Custom (D5)',
-      2 => 'Setting Alarm',
-      3 => 'Pengaturan App',
-      _ => 'Tentang Perangkat',
-    };
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       extendBody: true,
-      appBar: AppBar(
-        systemOverlayStyle: SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: false,
-        title: Row(
-          children: [
-            const Icon(
-              Icons.auto_awesome_rounded,
-              color: Color(0xFF0284C7),
-              size: 22,
+      body: Stack(
+        children: [
+          // Layer konten utama full-screen di belakang header & bottom bar
+          Positioned.fill(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: pages,
             ),
-            const SizedBox(width: 8),
-            Text(
-              appBarTitle,
-              style: const TextStyle(
-                color: Color(0xFF0F172A),
-                fontWeight: FontWeight.w800,
-                fontSize: 18,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.wifi_find_rounded, color: Color(0xFF0284C7)),
-            tooltip: 'Buka Pengaturan WiFi HP',
-            onPressed: _openWifiSettings,
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_ethernet_rounded,
-                color: Color(0xFF2563EB)),
-            tooltip: 'Atur & Tes IP ESP',
-            onPressed: _showManualIpDialog,
-          ),
-          ValueListenableBuilder<EspConnectionState>(
-            valueListenable: _udpService.connectionState,
-            builder: (context, state, child) {
-              final isConnected = state == EspConnectionState.connected;
 
-              return Padding(
-                padding: const EdgeInsets.only(right: 12.0),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () => _udpService.queryState(),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        color: isConnected
-                            ? const Color(0xFFE8F5E9)
-                            : const Color(0xFFFFEBEE),
-                        border: Border.all(
-                          color: isConnected
-                              ? const Color(0xFF34C759)
-                              : const Color(0xFFFF3B30),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            isConnected
-                                ? Icons.wifi_rounded
-                                : Icons.wifi_off_rounded,
-                            size: 15,
-                            color: isConnected
-                                ? const Color(0xFF34C759)
-                                : const Color(0xFFFF3B30),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            isConnected ? 'Terhubung' : 'Terputus',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: isConnected
-                                  ? const Color(0xFF2E7D32)
-                                  : const Color(0xFFC62828),
-                            ),
-                          ),
-                        ],
-                      ),
+          // Strip Blur Full-Width di belakang Header
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                child: Container(
+                  color: const Color(0xFFF8FAFC).withValues(alpha: 0.70),
+                  child: SafeArea(
+                    bottom: false,
+                    child: RtcHeader(
+                      udpService: _udpService,
+                      onWifiTap: _showWifiOptionsModal,
                     ),
                   ),
                 ),
-              );
-            },
+              ),
+            ),
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: pages,
-      ),
-      bottomNavigationBar: CustomFloatingBottomNavBar(
-        selectedIndex: _currentIndex,
-        onItemSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: navItems,
+      // Strip Blur Full-Width di belakang Floating Bottom Nav Bar
+      bottomNavigationBar: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+          child: Container(
+            color: const Color(0xFFF8FAFC).withValues(alpha: 0.70),
+            child: CustomFloatingBottomNavBar(
+              selectedIndex: _currentIndex,
+              onItemSelected: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              items: navItems,
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -6,17 +6,20 @@ import 'screens/main_navigation_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // MENGATUR MODE IMMERSIVE STICKY: NAVIGASI BISTEM HP TIDAK AKAN MUNCUL SAAT LAYAR DISENTUH!
+  // HANYA TAMPILKAN STATUS BAR ATAS & SEMBUNYIKAN NAVIGASI BAWAH SISTEM HP (AGAR TIDAK NONGTOL/NGALANGIN)
   SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.immersiveSticky,
+    SystemUiMode.manual,
+    overlays: [SystemUiOverlay.top],
   );
 
-  // KUSTOMISASI STATUS BAR ATAS
+  // KUSTOMISASI STATUS BAR TRANSPARAN (MENYATU WARNA APLIKASI DENGAN IKON GELAP)
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
-      statusBarColor: Color(0xFFF8FAFC), // Warna latar atas menyatu dengan aplikasi
-      statusBarIconBrightness: Brightness.dark, // Ikon status bar gelap (jam, baterai)
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
       statusBarBrightness: Brightness.light,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
     ),
   );
 

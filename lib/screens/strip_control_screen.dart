@@ -457,14 +457,12 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
         '${g.toRadixString(16).padLeft(2, '0').toUpperCase()}'
         '${b.toRadixString(16).padLeft(2, '0').toUpperCase()}';
 
-    return SafeArea(
-      child: SingleChildScrollView(
-        // KUNCI SCROLL HALAMAN SAAT JARI SENTUH / GESER RODA WARNA!
-        physics: _isWheelDragging
-            ? const NeverScrollableScrollPhysics()
-            : const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
-        child: Column(
+    return SingleChildScrollView(
+      physics: _isWheelDragging
+          ? const NeverScrollableScrollPhysics()
+          : const BouncingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20.0, 72.0, 20.0, 95.0),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // PANEL RODA WARNA (WRAPPER CARD MODERN & SLEEK)
@@ -1014,24 +1012,53 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                 ),
                 const SizedBox(height: 12),
 
-                // TOMBOL SIMPAN KE DAFTAR ANIMASI JSON
-                SizedBox(
+                // TOMBOL SIMPAN PRESET (ULTRA-MODERN IOT STYLING)
+                Container(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: widget.accentColor,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      elevation: 2,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: LinearGradient(
+                      colors: [
+                        widget.accentColor,
+                        widget.accentColor.withValues(alpha: 0.85),
+                      ],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
-                    onPressed: _showSaveAnimationDialog,
-                    icon: const Icon(Icons.bookmark_add_rounded, size: 18),
-                    label: Text(
-                      '💾 Simpan State Ini Ke List (${widget.title})',
-                      style: const TextStyle(
-                          fontSize: 12.5, fontWeight: FontWeight.bold),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.accentColor.withValues(alpha: 0.35),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: _showSaveAnimationDialog,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.bookmark_add_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Simpan Preset Animasi',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -1053,7 +1080,6 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
             const SizedBox(height: 90),
           ],
         ),
-      ),
-    );
+      );
   }
 }
