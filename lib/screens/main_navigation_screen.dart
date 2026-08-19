@@ -26,8 +26,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _udpService.init();
 
     SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.manual,
-      overlays: [SystemUiOverlay.top],
+      SystemUiMode.edgeToEdge,
     );
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -36,6 +35,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         statusBarBrightness: Brightness.light,
         systemNavigationBarColor: Colors.transparent,
         systemNavigationBarDividerColor: Colors.transparent,
+        systemNavigationBarIconBrightness: Brightness.dark,
+        systemNavigationBarContrastEnforced: false,
       ),
     );
   }

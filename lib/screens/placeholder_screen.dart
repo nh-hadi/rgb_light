@@ -12,9 +12,17 @@ class DevelopmentPlaceholderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double scale = (screenWidth / 360.0).clamp(0.72, 1.0);
+
+    final double dynamicTopPadding = statusBarHeight + (64.0 * scale) + 12.0;
+    final double dynamicBottomPadding = (76.0 * scale) + bottomInset + 16.0;
+
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 72, 24, 95),
+        padding: EdgeInsets.fromLTRB(24, dynamicTopPadding, 24, dynamicBottomPadding),
         child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

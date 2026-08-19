@@ -6,13 +6,11 @@ import 'screens/main_navigation_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // HANYA TAMPILKAN STATUS BAR ATAS & SEMBUNYIKAN NAVIGASI BAWAH SISTEM HP (AGAR TIDAK NONGTOL/NGALANGIN)
+  // MODE EDGE-TO-EDGE: STATUS BAR ATAS TETAP TAMPIL & SISTEM NAVIGASI BAWAH TRANSPARAN SEPENUHNYA
   SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.manual,
-    overlays: [SystemUiOverlay.top],
+    SystemUiMode.edgeToEdge,
   );
 
-  // KUSTOMISASI STATUS BAR TRANSPARAN (MENYATU WARNA APLIKASI DENGAN IKON GELAP)
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -20,6 +18,8 @@ void main() {
       statusBarBrightness: Brightness.light,
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
     ),
   );
 

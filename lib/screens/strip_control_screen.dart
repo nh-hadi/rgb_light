@@ -457,11 +457,19 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
         '${g.toRadixString(16).padLeft(2, '0').toUpperCase()}'
         '${b.toRadixString(16).padLeft(2, '0').toUpperCase()}';
 
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
+    final double bottomInset = MediaQuery.of(context).padding.bottom;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final double scale = (screenWidth / 360.0).clamp(0.72, 1.0);
+
+    final double dynamicTopPadding = statusBarHeight + (64.0 * scale) + 12.0;
+    final double dynamicBottomPadding = (76.0 * scale) + bottomInset + 16.0;
+
     return SingleChildScrollView(
       physics: _isWheelDragging
           ? const NeverScrollableScrollPhysics()
           : const BouncingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20.0, 72.0, 20.0, 95.0),
+      padding: EdgeInsets.fromLTRB(20.0, dynamicTopPadding, 20.0, dynamicBottomPadding),
       child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [

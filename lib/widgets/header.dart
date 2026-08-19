@@ -125,7 +125,7 @@ class _RtcHeaderState extends State<RtcHeader> {
                       Icon(Icons.bolt_rounded, color: Colors.white, size: iconSz),
                       SizedBox(width: 3 * scale),
                       Text(
-                        'IDS-STORE',
+                        'IDS-TECH',
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w900,
