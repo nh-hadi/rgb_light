@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../esp_udp_service.dart';
 import '../models/preset_model.dart';
 import '../widgets/color_wheel_picker.dart';
+import '../widgets/custom_toast.dart';
 import '../widgets/json_animations_panel.dart';
 import '../ws2812fx_modes.dart';
 
@@ -88,11 +89,12 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
             _isPreviewMode = false;
           });
           _revertToSavedPreset();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              duration: Duration(seconds: 2),
-              content: Text('⏱️ Live Preview Timeout (30d). Kembali ke Preset tersimpan.'),
-            ),
+          CustomFloatingToast.show(
+            context,
+            title: 'Preview Selesai',
+            message: 'Preview selesai',
+            icon: Icons.timer_outlined,
+            type: ToastType.warning,
           );
         }
       });
@@ -374,6 +376,17 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           ),
                           icon: const Icon(Icons.save_alt_rounded, size: 16),
                           onPressed: () {
+                            if (widget.udpService.connectionState.value != EspConnectionState.connected) {
+                              Navigator.pop(context);
+                              CustomFloatingToast.show(
+                                context,
+                                title: 'Gagal',
+                                message: 'Gagal: ESP8266 terputus',
+                                icon: Icons.wifi_off_rounded,
+                                type: ToastType.error,
+                              );
+                              return;
+                            }
                             final name = nameController.text.trim();
                             final durationSec = int.tryParse(durationController.text.trim()) ?? 10;
                             final delayMs = _calculateDelayMs(_speedPercent);
@@ -393,11 +406,12 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                               );
                             }
                             Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: Colors.green[700],
-                                content: Text('💾 Preset "$name" ($durationSec s) Disinkronkan ke ESP8266 ($_presetFileName)!'),
-                              ),
+                            CustomFloatingToast.show(
+                              context,
+                              title: 'Sukses',
+                              message: 'Mode berhasil disimpan',
+                              icon: Icons.bookmark_added_rounded,
+                              type: ToastType.success,
                             );
                           },
                           label: const Text('Simpan Ke List', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
@@ -615,6 +629,16 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                       InkWell(
                         borderRadius: BorderRadius.circular(20),
                         onTap: () {
+                          if (widget.udpService.connectionState.value != EspConnectionState.connected) {
+                            CustomFloatingToast.show(
+                              context,
+                              title: 'Gagal',
+                              message: 'Gagal: ESP8266 terputus',
+                              icon: Icons.wifi_off_rounded,
+                              type: ToastType.error,
+                            );
+                            return;
+                          }
                           setState(() {
                             _isPreviewMode = !_isPreviewMode;
                           });
@@ -624,15 +648,13 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                             _inactivityTimer?.cancel();
                             _revertToSavedPreset();
                           }
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              duration: const Duration(seconds: 1),
-                              content: Text(
-                                _isPreviewMode
-                                    ? '👁️ Live Preview ON (Auto-Revert 30d)'
-                                    : '▶️ Live Preview OFF. Revert ke Preset tersimpan.',
-                              ),
-                            ),
+                          CustomFloatingToast.show(
+                            context,
+                            title: _isPreviewMode ? 'Preview' : 'Playlist',
+                            message: _isPreviewMode ? 'Live preview aktif' : 'Preview selesai',
+                            icon: _isPreviewMode ? Icons.remove_red_eye_rounded : Icons.play_circle_outline_rounded,
+                            type: _isPreviewMode ? ToastType.info : ToastType.warning,
+                            duration: const Duration(milliseconds: 1800),
                           );
                         },
                         child: AnimatedContainer(
@@ -897,18 +919,26 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           InkWell(
                             borderRadius: BorderRadius.circular(10),
                             onTap: () {
+                              if (widget.udpService.connectionState.value != EspConnectionState.connected) {
+                                CustomFloatingToast.show(
+                                  context,
+                                  title: 'Gagal',
+                                  message: 'Gagal: ESP8266 terputus',
+                                  icon: Icons.wifi_off_rounded,
+                                  type: ToastType.error,
+                                );
+                                return;
+                              }
                               setState(() {
                                 _savedBrightness = _brightness;
                               });
                               widget.udpService.saveBrightness(_brightness.round(), targetId: widget.targetId);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  duration: const Duration(seconds: 2),
-                                  backgroundColor: Colors.amber[800],
-                                  content: Text(
-                                    '💾 Kecerahan (${((_brightness / 255.0) * 100).round()}%) Disimpan di ESP8266 ($_presetFileName)!',
-                                  ),
-                                ),
+                              CustomFloatingToast.show(
+                                context,
+                                title: 'Sukses',
+                                message: 'Kecerahan berhasil diupdate',
+                                icon: Icons.wb_sunny_rounded,
+                                type: ToastType.success,
                               );
                             },
                             child: Container(
@@ -1214,13 +1244,24 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                     );
                   },
                   onDelete: (idStr) {
+                    if (widget.udpService.connectionState.value != EspConnectionState.connected) {
+                      CustomFloatingToast.show(
+                        context,
+                        title: 'Gagal',
+                        message: 'Gagal: ESP8266 terputus',
+                        icon: Icons.wifi_off_rounded,
+                        type: ToastType.error,
+                      );
+                      return;
+                    }
                     final idx = int.tryParse(idStr) ?? 0;
                     widget.udpService.sendDeletePreset(idx, targetId: widget.targetId);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        backgroundColor: Colors.red[700],
-                        content: Text('🗑️ Preset #${idx + 1} Dihapus dari ESP8266 ($_presetFileName)!'),
-                      ),
+                    CustomFloatingToast.show(
+                      context,
+                      title: 'Hapus',
+                      message: 'Preset berhasil dihapus',
+                      icon: Icons.delete_forever_rounded,
+                      type: ToastType.error,
                     );
                   },
                 );

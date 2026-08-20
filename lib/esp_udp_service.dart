@@ -30,9 +30,10 @@ class EspUdpService {
       ValueNotifier<List<PresetItem>>([]);
 
   String _espIp = '192.168.4.1';
-  static const int _espPort = 8888;
+  int _espPort = 8888;
 
   String get currentTargetIp => _espIp;
+  int get currentTargetPort => _espPort;
 
   void updateTargetIp(String newIp) {
     if (newIp.trim().isNotEmpty) {
@@ -41,6 +42,21 @@ class EspUdpService {
       fetchPlaylistJson(1);
       fetchPlaylistJson(2);
     }
+  }
+
+  void updateConnectionSettings(String newIp, int newPort) {
+    if (newIp.trim().isNotEmpty) {
+      _espIp = newIp.trim();
+    }
+    if (newPort > 0 && newPort <= 65535) {
+      _espPort = newPort;
+    }
+    _socket?.close();
+    _socket = null;
+    init();
+    queryState();
+    fetchPlaylistJson(1);
+    fetchPlaylistJson(2);
   }
 
   void init() async {
@@ -192,6 +208,9 @@ class EspUdpService {
 
   void _handleJsonPlaylistResponse(String message) {
     try {
+      _lastResponseTime = DateTime.now();
+      connectionState.value = EspConnectionState.connected;
+
       final isD5 = message.startsWith('JSON2:');
       final jsonRaw = message.substring(6);
       final decoded = jsonDecode(jsonRaw) as Map<String, dynamic>;
@@ -244,7 +263,7 @@ class EspUdpService {
   void saveBrightness(int brightness, {required int targetId}) {
     final prefix = targetId == 1 ? 'BSAVE1:' : 'BSAVE2:';
     _send('$prefix${brightness.clamp(0, 255)}');
-    Timer(const Duration(milliseconds: 300), () => fetchPlaylistJson(targetId));
+    Timer(const Duration(milliseconds: 150), () => fetchPlaylistJson(targetId));
   }
 
   void sendSpeed(int speedMs, {int targetId = 0}) {
@@ -267,13 +286,13 @@ class EspUdpService {
   void sendAddPreset(int mode, int delayMs, String colorHex, int durationSec, {required int targetId}) {
     final prefix = targetId == 1 ? 'ADD1:' : 'ADD2:';
     _send('$prefix$mode,$delayMs,$colorHex,$durationSec');
-    Timer(const Duration(milliseconds: 300), () => fetchPlaylistJson(targetId));
+    Timer(const Duration(milliseconds: 150), () => fetchPlaylistJson(targetId));
   }
 
   void sendDeletePreset(int index, {required int targetId}) {
     final prefix = targetId == 1 ? 'DEL1:' : 'DEL2:';
     _send('$prefix$index');
-    Timer(const Duration(milliseconds: 300), () => fetchPlaylistJson(targetId));
+    Timer(const Duration(milliseconds: 150), () => fetchPlaylistJson(targetId));
   }
 
   void dispose() {

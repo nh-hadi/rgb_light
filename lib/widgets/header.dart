@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../esp_udp_service.dart';
 import '../models/preset_model.dart';
+import 'custom_toast.dart';
 
 class RtcHeader extends StatefulWidget {
   final DateTime? now;
@@ -40,11 +41,13 @@ class _RtcHeaderState extends State<RtcHeader> {
       _brandTapResetTimer?.cancel();
       _showDeveloperJsonModal();
     } else if (_brandTapCount >= 3) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          duration: const Duration(milliseconds: 700),
-          content: Text('🛠️ Opsi Developer dalam ${5 - _brandTapCount} ketukan lagi...'),
-        ),
+      CustomFloatingToast.show(
+        context,
+        title: 'Developer',
+        message: 'Ketuk ${5 - _brandTapCount}x lagi',
+        icon: Icons.developer_mode_rounded,
+        type: ToastType.info,
+        duration: const Duration(milliseconds: 1000),
       );
     }
   }
@@ -55,7 +58,7 @@ class _RtcHeaderState extends State<RtcHeader> {
 
     showGeneralDialog(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false, // HARUS KLIK TOMBOL (X) DULU BARU KELUAR
       barrierLabel: 'Developer Console',
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) => const SizedBox(),
@@ -67,9 +70,9 @@ class _RtcHeaderState extends State<RtcHeader> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             insetPadding: const EdgeInsets.all(16),
             child: DefaultTabController(
-              length: 2,
+              length: 3, // 3 TAB: D4, D5, KONEKSI UDP
               child: Container(
-                constraints: const BoxConstraints(maxWidth: 440, maxHeight: 520),
+                constraints: const BoxConstraints(maxWidth: 440, maxHeight: 530),
                 padding: const EdgeInsets.all(18),
                 child: Column(
                   children: [
@@ -90,7 +93,7 @@ class _RtcHeaderState extends State<RtcHeader> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Developer JSON Inspector',
+                                'Developer Inspector',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.bold,
@@ -98,27 +101,30 @@ class _RtcHeaderState extends State<RtcHeader> {
                                 ),
                               ),
                               Text(
-                                'Inspeksi File LittleFS ESP8266 Real-Time',
+                                'Inspeksi JSON LittleFS & Tes UDP WiFi',
                                 style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
                               ),
                             ],
                           ),
                         ),
+                        // TOMBOL (X) KHUSUS UNTUK KELUAR
                         IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 20),
+                          icon: const Icon(Icons.close_rounded, color: Colors.white, size: 22),
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    // TAB BAR UNTUK D4 vs D5
+                    // TAB BAR UNTUK D4, D5 & NETWORK SETTINGS
                     const TabBar(
                       indicatorColor: Color(0xFF38BDF8),
                       labelColor: Color(0xFF38BDF8),
                       unselectedLabelColor: Color(0xFF64748B),
+                      isScrollable: true,
                       tabs: [
-                        Tab(text: 'presets_d4.json (Jam)'),
-                        Tab(text: 'presets_d5.json (Nama)'),
+                        Tab(text: 'presets_d4.json'),
+                        Tab(text: 'presets_d5.json'),
+                        Tab(text: '⚙️ Network & UDP'),
                       ],
                     ),
                     const SizedBox(height: 12),
@@ -127,6 +133,7 @@ class _RtcHeaderState extends State<RtcHeader> {
                         children: [
                           _buildJsonView(1),
                           _buildJsonView(2),
+                          _buildNetworkSettingsTab(),
                         ],
                       ),
                     ),
@@ -136,7 +143,7 @@ class _RtcHeaderState extends State<RtcHeader> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'IP: ${widget.udpService.currentTargetIp}',
+                          'Target: ${widget.udpService.currentTargetIp}:${widget.udpService.currentTargetPort}',
                           style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                         ),
                         ElevatedButton.icon(
@@ -163,6 +170,10 @@ class _RtcHeaderState extends State<RtcHeader> {
         );
       },
     );
+  }
+
+  Widget _buildNetworkSettingsTab() {
+    return _NetworkSettingsTabWidget(udpService: widget.udpService);
   }
 
   Widget _buildJsonView(int targetId) {
@@ -319,8 +330,8 @@ class _RtcHeaderState extends State<RtcHeader> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.bolt_rounded, color: Colors.white, size: iconSz),
-                          SizedBox(width: 3 * scale),
+                          _BlinkingLedDot(udpService: widget.udpService, size: 9.0 * scale),
+                          SizedBox(width: 5 * scale),
                           Text(
                             'IDS-TECH',
                             style: TextStyle(
@@ -420,33 +431,12 @@ class _RtcHeaderState extends State<RtcHeader> {
 
               SizedBox(width: gap),
 
-              // ── KANAN: STATUS DOT + WIFI BUTTON ─────────────
+              // ── KANAN: STATUS BLINKING LED DOT + WIFI BUTTON ─────────────
               Row(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  ValueListenableBuilder<EspConnectionState>(
-                    valueListenable: widget.udpService.connectionState,
-                    builder: (context, state, _) {
-                      final isConnected = state == EspConnectionState.connected;
-                      return Container(
-                        width: 8 * scale,
-                        height: 8 * scale,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isConnected
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFEF4444),
-                          boxShadow: [
-                            BoxShadow(
-                              color: (isConnected ? const Color(0xFF10B981) : const Color(0xFFEF4444)).withValues(alpha: 0.4),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+                  _BlinkingLedDot(udpService: widget.udpService, size: 9.0 * scale),
                   SizedBox(width: 5 * scale),
                   GestureDetector(
                     onTap: widget.onWifiTap,
@@ -474,6 +464,254 @@ class _RtcHeaderState extends State<RtcHeader> {
           ),
         );
       },
+    );
+  }
+}
+
+// LED BLINKING DOT: PUTIH SAAT DISCONNECTED, KEDIP-KEDIP MERAH-BIRU-PUTIH SAAT CONNECTED
+class _BlinkingLedDot extends StatefulWidget {
+  final EspUdpService udpService;
+  final double size;
+
+  const _BlinkingLedDot({
+    required this.udpService,
+    this.size = 9.0,
+  });
+
+  @override
+  State<_BlinkingLedDot> createState() => _BlinkingLedDotState();
+}
+
+class _BlinkingLedDotState extends State<_BlinkingLedDot> {
+  Timer? _blinkTimer;
+  int _colorIndex = 0;
+
+  static const List<Color> _blinkColors = [
+    Color(0xFFFF3B30), // Red
+    Color(0xFF007AFF), // Blue
+    Color(0xFFFFFFFF), // White
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _blinkTimer = Timer.periodic(const Duration(milliseconds: 350), (timer) {
+      if (mounted) {
+        setState(() {
+          _colorIndex = (_colorIndex + 1) % _blinkColors.length;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _blinkTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<EspConnectionState>(
+      valueListenable: widget.udpService.connectionState,
+      builder: (context, state, child) {
+        final bool isConnected = state == EspConnectionState.connected;
+
+        final Color dotColor = isConnected
+            ? _blinkColors[_colorIndex]
+            : Colors.white;
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
+            color: dotColor,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: isConnected
+                  ? dotColor.withValues(alpha: 0.6)
+                  : const Color(0xFFCBD5E1),
+              width: 1.2,
+            ),
+            boxShadow: isConnected
+                ? [
+                    BoxShadow(
+                      color: dotColor.withValues(alpha: 0.8),
+                      blurRadius: 6,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : [],
+          ),
+        );
+      },
+    );
+  }
+}
+
+// PANEL TAB NETWORK & UDP SETTINGS DI DALAM DEVELOPER MODAL
+class _NetworkSettingsTabWidget extends StatefulWidget {
+  final EspUdpService udpService;
+  const _NetworkSettingsTabWidget({required this.udpService});
+
+  @override
+  State<_NetworkSettingsTabWidget> createState() => _NetworkSettingsTabWidgetState();
+}
+
+class _NetworkSettingsTabWidgetState extends State<_NetworkSettingsTabWidget> {
+  late TextEditingController _ipController;
+  late TextEditingController _portController;
+  String _pingResult = '';
+  bool _isTestingPing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ipController = TextEditingController(text: widget.udpService.currentTargetIp);
+    _portController = TextEditingController(text: widget.udpService.currentTargetPort.toString());
+  }
+
+  @override
+  void dispose() {
+    _ipController.dispose();
+    _portController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _testPing() async {
+    setState(() {
+      _isTestingPing = true;
+      _pingResult = 'Menguji koneksi UDP ke ESP8266...';
+    });
+
+    final stopwatch = Stopwatch()..start();
+    widget.udpService.queryState();
+
+    await Future.delayed(const Duration(milliseconds: 600));
+    stopwatch.stop();
+
+    if (mounted) {
+      final bool isConn = widget.udpService.connectionState.value == EspConnectionState.connected;
+      setState(() {
+        _isTestingPing = false;
+        if (isConn) {
+          _pingResult = '⚡ PING OK: Latensi ${stopwatch.elapsedMilliseconds} ms (${widget.udpService.currentTargetIp}:${widget.udpService.currentTargetPort})';
+        } else {
+          _pingResult = '❌ PING GAGAL: ESP8266 Tidak Merespons di ${widget.udpService.currentTargetIp}:${widget.udpService.currentTargetPort}';
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF020617),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF1E293B)),
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '⚙️ PENGATURAN ALAMAT IP & PORT UDP ESP8266',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF38BDF8)),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _ipController,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'Target IP Address (ESP8266 AP)',
+                labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+                filled: true,
+                fillColor: const Color(0xFF0F172A),
+                prefixIcon: const Icon(Icons.router_rounded, color: Color(0xFF38BDF8), size: 18),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF38BDF8))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF334155))),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _portController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              decoration: InputDecoration(
+                labelText: 'Target Port UDP',
+                labelStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+                filled: true,
+                fillColor: const Color(0xFF0F172A),
+                prefixIcon: const Icon(Icons.settings_ethernet_rounded, color: Color(0xFF38BDF8), size: 18),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF38BDF8))),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF334155))),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    icon: const Icon(Icons.save_rounded, size: 16),
+                    label: const Text('Simpan & Reconnect', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () {
+                      final ip = _ipController.text.trim();
+                      final port = int.tryParse(_portController.text.trim()) ?? 8888;
+                      widget.udpService.updateConnectionSettings(ip, port);
+                      CustomFloatingToast.show(
+                        context,
+                        title: 'Koneksi',
+                        message: 'Pengaturan IP UDP disimpan',
+                        icon: Icons.wifi_protected_setup_rounded,
+                        type: ToastType.success,
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E293B),
+                    foregroundColor: const Color(0xFF38BDF8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: _isTestingPing
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF38BDF8)))
+                      : const Icon(Icons.network_check_rounded, size: 16),
+                  label: const Text('Tes Ping', style: TextStyle(fontSize: 12)),
+                  onPressed: _isTestingPing ? null : _testPing,
+                ),
+              ],
+            ),
+            if (_pingResult.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF334155)),
+                ),
+                child: Text(
+                  _pingResult,
+                  style: const TextStyle(fontSize: 11.5, color: Color(0xFFE2E8F0), fontFamily: 'monospace'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
