@@ -6,11 +6,8 @@ import 'screens/main_navigation_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // SEMBUNYIKAN SEPENUHNYA NAVIGASI SISTEM HP BAWAH (HANYA TAMPILKAN STATUS BAR ATAS)
-  SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.manual,
-    overlays: [SystemUiOverlay.top],
-  );
+  // SEMBUNYIKAN TERUS NAVIGASI SISTEM HP (IMMERSIVE STICKY — AUTO RE-HIDE SAAT DI-SWIPE)
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
