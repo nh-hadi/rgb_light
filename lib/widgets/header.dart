@@ -166,33 +166,50 @@ class _RtcHeaderState extends State<RtcHeader> {
   }
 
   Widget _buildJsonView(int targetId) {
-    return ValueListenableBuilder<List<PresetItem>>(
-      valueListenable: targetId == 2
-          ? widget.udpService.playlistNotifierD5
-          : widget.udpService.playlistNotifierD4,
-      builder: (context, presets, child) {
-        final config = StripConfigPresets(kecerahan: 255, presets: presets);
-        final jsonString = const JsonEncoder.withIndent('  ').convert(config.toJson());
+    return ValueListenableBuilder<EspConnectionState>(
+      valueListenable: widget.udpService.connectionState,
+      builder: (context, connState, child) {
+        final bool isConnected = connState == EspConnectionState.connected;
 
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF020617),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFF1E293B)),
-          ),
-          child: SingleChildScrollView(
-            child: SelectableText(
-              jsonString,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 11.5,
-                color: Color(0xFF34D399),
-                height: 1.4,
+        return ValueListenableBuilder<List<PresetItem>>(
+          valueListenable: targetId == 2
+              ? widget.udpService.playlistNotifierD5
+              : widget.udpService.playlistNotifierD4,
+          builder: (context, presets, child) {
+            String jsonString;
+            if (!isConnected) {
+              jsonString = const JsonEncoder.withIndent('  ').convert({
+                "status": "OFFLINE / ESP8266 BELUM TERHUBUNG",
+                "file": targetId == 2 ? "presets_d5.json" : "presets_d4.json",
+                "kecerahan": 0,
+                "presets": [],
+              });
+            } else {
+              final config = StripConfigPresets(kecerahan: 255, presets: presets);
+              jsonString = const JsonEncoder.withIndent('  ').convert(config.toJson());
+            }
+
+            return Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF020617),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF1E293B)),
               ),
-            ),
-          ),
+              child: SingleChildScrollView(
+                child: SelectableText(
+                  jsonString,
+                  style: TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 11.5,
+                    color: isConnected ? const Color(0xFF34D399) : const Color(0xFFF87171),
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            );
+          },
         );
       },
     );
