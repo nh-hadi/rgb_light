@@ -59,6 +59,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
   void initState() {
     super.initState();
     _resetInactivityTimer();
+    widget.udpService.fetchPlaylistJson(widget.targetId);
   }
 
   @override
@@ -106,11 +107,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
       _selectedMode = _savedMode;
     });
 
-    final delayMs = _calculateDelayMs(_savedSpeedPercent);
-    widget.udpService.sendColorDirect(_savedColor);
-    widget.udpService.sendBrightnessDirect(_savedBrightness.round());
-    widget.udpService.sendMode(_savedMode.id);
-    widget.udpService.sendSpeedDirect(delayMs);
+    widget.udpService.sendPreviewState(false, targetId: widget.targetId);
   }
 
   void _activatePreviewAndSend(VoidCallback sendAction) {
@@ -377,25 +374,28 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           icon: const Icon(Icons.save_alt_rounded, size: 16),
                           onPressed: () {
                             final name = nameController.text.trim();
-                            final durSec = durationController.text.trim();
+                            final durationSec = int.tryParse(durationController.text.trim()) ?? 10;
+                            final delayMs = _calculateDelayMs(_speedPercent);
+
+                            final int r = (_selectedColor.r * 255).round();
+                            final int g = (_selectedColor.g * 255).round();
+                            final int b = (_selectedColor.b * 255).round();
+                            final String colorHex = '0x${r.toRadixString(16).padLeft(2, '0')}${g.toRadixString(16).padLeft(2, '0')}${b.toRadixString(16).padLeft(2, '0')}';
+
                             if (name.isNotEmpty) {
-                              setState(() {
-                                _savedJsonAnimations.add({
-                                  'id': DateTime.now().millisecondsSinceEpoch.toString(),
-                                  'name': name,
-                                  'modeName': _selectedMode.name,
-                                  'duration': '$durSec Detik',
-                                  'color': _selectedColor,
-                                  'speed': speedPercent,
-                                  'brightness': brightPercent,
-                                });
-                              });
+                              widget.udpService.sendAddPreset(
+                                _selectedMode.id,
+                                delayMs,
+                                colorHex,
+                                durationSec,
+                                targetId: widget.targetId,
+                              );
                             }
                             Navigator.pop(context);
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 backgroundColor: Colors.green[700],
-                                content: Text('💾 Animasi "$name" Disimpan ke List JSON!'),
+                                content: Text('💾 Preset "$name" ($durationSec s) Disinkronkan ke ESP8266 ($_presetFileName)!'),
                               ),
                             );
                           },
@@ -896,13 +896,13 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           InkWell(
                             borderRadius: BorderRadius.circular(10),
                             onTap: () {
-                              widget.udpService.sendBrightnessDirect(_brightness.round());
+                              widget.udpService.sendBrightnessDirect(_brightness.round(), targetId: widget.targetId);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   duration: const Duration(seconds: 2),
                                   backgroundColor: Colors.amber[800],
                                   content: Text(
-                                    '💾 Kecerahan Global (${((_brightness / 255.0) * 100).round()}%) Disimpan di ESP8266!',
+                                    '💾 Kecerahan (${((_brightness / 255.0) * 100).round()}%) Disimpan di ESP8266 ($_presetFileName)!',
                                   ),
                                 ),
                               );
@@ -1176,14 +1176,51 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
 
             const SizedBox(height: 16),
 
-            // PANEL DAFTAR ANIMASI JSON COMPACT (KHUSUS EDIT & DELETE)
-            JsonAnimationsPanel(
-              title: widget.title,
-              accentColor: widget.accentColor,
-              savedAnimations: _savedJsonAnimations,
-              globalBrightness: _brightness,
-              onEdit: _showEditAnimationDialog,
-              onDelete: _deleteJsonAnimation,
+            // PANEL DAFTAR ANIMASI JSON COMPACT (DINAMIS SINKRON ESP8266)
+            ValueListenableBuilder<List<PresetItem>>(
+              valueListenable: widget.targetId == 2
+                  ? widget.udpService.playlistNotifierD5
+                  : widget.udpService.playlistNotifierD4,
+              builder: (context, presetItems, child) {
+                final List<Map<String, dynamic>> mappedItems =
+                    presetItems.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  return {
+                    'id': index.toString(),
+                    'name': item.modeName,
+                    'modeName': item.modeName,
+                    'duration': '${item.durasi} Detik',
+                    'color': item.color,
+                    'speed': '${((3000 - item.kecepatan) / 2900 * 100).round()}%',
+                    'brightness': '${((_brightness / 255.0) * 100).round()}%',
+                  };
+                }).toList();
+
+                return JsonAnimationsPanel(
+                  title: widget.title,
+                  accentColor: widget.accentColor,
+                  savedAnimations: mappedItems,
+                  globalBrightness: _brightness,
+                  onEdit: (anim) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('ℹ️ Edit Preset #${anim['id']}: ${anim['modeName']}'),
+                      ),
+                    );
+                  },
+                  onDelete: (idStr) {
+                    final idx = int.tryParse(idStr) ?? 0;
+                    widget.udpService.sendDeletePreset(idx, targetId: widget.targetId);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        backgroundColor: Colors.red[700],
+                        content: Text('🗑️ Preset #${idx + 1} Dihapus dari ESP8266 ($_presetFileName)!'),
+                      ),
+                    );
+                  },
+                );
+              },
             ),
 
             const SizedBox(height: 90),

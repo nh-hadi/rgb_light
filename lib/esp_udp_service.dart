@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'models/preset_model.dart';
 
 enum EspConnectionState { disconnected, connecting, connected }
 
@@ -12,13 +14,8 @@ class EspUdpService {
   RawDatagramSocket? _socket;
   Timer? _heartbeatTimer;
 
-  // Waktu terakhir RESPONSE valid diterima dari ESP (bukan saat kirim)
   DateTime _lastResponseTime = DateTime.fromMillisecondsSinceEpoch(0);
-
-  // Timeout: jika > 8 detik tidak ada response → anggap terputus
   static const Duration _connectionTimeout = Duration(seconds: 8);
-
-  // Interval heartbeat query 'Q' ke ESP
   static const Duration _heartbeatInterval = Duration(seconds: 2);
 
   final ValueNotifier<EspConnectionState> connectionState =
@@ -26,6 +23,11 @@ class EspUdpService {
 
   final ValueNotifier<Map<String, dynamic>?> espStateNotifier =
       ValueNotifier<Map<String, dynamic>?>(null);
+
+  final ValueNotifier<List<PresetItem>> playlistNotifierD4 =
+      ValueNotifier<List<PresetItem>>([]);
+  final ValueNotifier<List<PresetItem>> playlistNotifierD5 =
+      ValueNotifier<List<PresetItem>>([]);
 
   String _espIp = '192.168.4.1';
   static const int _espPort = 8888;
@@ -36,10 +38,11 @@ class EspUdpService {
     if (newIp.trim().isNotEmpty) {
       _espIp = newIp.trim();
       queryState();
+      fetchPlaylistJson(1);
+      fetchPlaylistJson(2);
     }
   }
 
-  /// Inisialisasi socket UDP. Aman dipanggil berulang.
   void init() async {
     if (_socket != null) {
       try {
@@ -61,8 +64,10 @@ class EspUdpService {
             final datagram = _socket?.receive();
             if (datagram != null) {
               final message = String.fromCharCodes(datagram.data).trim();
-              if (message.startsWith('STATE:')) {
+              if (message.startsWith('STATE')) {
                 _handleStateResponse(message);
+              } else if (message.startsWith('JSON')) {
+                _handleJsonPlaylistResponse(message);
               }
             }
           }
@@ -108,8 +113,15 @@ class EspUdpService {
     }
   }
 
-  void queryState() {
-    _send('Q');
+  void queryState({int targetId = 0}) {
+    if (targetId == 1) _send('Q1');
+    else if (targetId == 2) _send('Q2');
+    else _send('Q');
+  }
+
+  void fetchPlaylistJson(int targetId) {
+    if (targetId == 2) _send('LIST2');
+    else _send('LIST1');
   }
 
   Future<bool> testConnection(String testIp) async {
@@ -127,7 +139,7 @@ class EspUdpService {
           final datagram = testSocket?.receive();
           if (datagram != null) {
             final msg = String.fromCharCodes(datagram.data).trim();
-            if (msg.startsWith('STATE:')) {
+            if (msg.startsWith('STATE')) {
               if (!completer.isCompleted) {
                 timeoutTimer?.cancel();
                 _handleStateResponse(msg);
@@ -157,20 +169,42 @@ class EspUdpService {
 
   void _handleStateResponse(String message) {
     try {
-      final parts = message.substring(6).split(',');
+      final colonIdx = message.indexOf(':');
+      if (colonIdx == -1) return;
+
+      final parts = message.substring(colonIdx + 1).split(',');
       if (parts.length >= 6) {
         _lastResponseTime = DateTime.now();
         connectionState.value = EspConnectionState.connected;
 
         espStateNotifier.value = {
-          'color':      Color.fromARGB(255, int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])),
+          'color': Color.fromARGB(255, int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])),
           'brightness': int.parse(parts[3]).toDouble(),
-          'modeId':     int.parse(parts[4]),
-          'speedMs':    int.parse(parts[5]).toDouble(),
+          'modeId': int.parse(parts[4]),
+          'speedMs': int.parse(parts[5]).toDouble(),
+          'isPreview': parts.length >= 7 ? parts[6] == '1' : false,
         };
       }
     } catch (e) {
       debugPrint('Error Parse State UDP: $e');
+    }
+  }
+
+  void _handleJsonPlaylistResponse(String message) {
+    try {
+      final isD5 = message.startsWith('JSON2:');
+      final jsonRaw = message.substring(6);
+      final decoded = jsonDecode(jsonRaw) as Map<String, dynamic>;
+      final parsed = StripConfigPresets.fromJson(decoded);
+
+      if (isD5) {
+        playlistNotifierD5.value = parsed.presets;
+      } else {
+        playlistNotifierD4.value = parsed.presets;
+      }
+      debugPrint('Sync Playlist dari ESP8266 berhasil (${isD5 ? "D5" : "D4"})');
+    } catch (e) {
+      debugPrint('Error Parse Playlist JSON UDP: $e');
     }
   }
 
@@ -189,22 +223,52 @@ class EspUdpService {
     }
   }
 
-  // Strip tunggal — semua perintah tanpa prefix
-  void sendColor(Color color) {
+  // TARGET INDEPENDENT COMMANDS (targetId = 1 untuk D4 Jam, targetId = 2 untuk D5 Nama)
+  void sendColor(Color color, {int targetId = 0}) {
     final r = (color.r * 255).round();
     final g = (color.g * 255).round();
     final b = (color.b * 255).round();
-    _send('C:$r,$g,$b');
+    final prefix = targetId == 1 ? 'C1:' : (targetId == 2 ? 'C2:' : 'C:');
+    _send('$prefix$r,$g,$b');
   }
-  void sendColorDirect(Color color) => sendColor(color);
 
-  void sendBrightness(int brightness) => _send('B:${brightness.clamp(0, 255)}');
-  void sendBrightnessDirect(int brightness) => sendBrightness(brightness);
+  void sendColorDirect(Color color, {int targetId = 0}) => sendColor(color, targetId: targetId);
 
-  void sendSpeed(int speedMs) => _send('S:${speedMs.clamp(100, 3000)}');
-  void sendSpeedDirect(int speedMs) => sendSpeed(speedMs);
+  void sendBrightness(int brightness, {int targetId = 0}) {
+    final prefix = targetId == 1 ? 'B1:' : (targetId == 2 ? 'B2:' : 'B:');
+    _send('$prefix${brightness.clamp(0, 255)}');
+  }
 
-  void sendMode(int modeId) => _send('M:$modeId');
+  void sendBrightnessDirect(int brightness, {int targetId = 0}) => sendBrightness(brightness, targetId: targetId);
+
+  void sendSpeed(int speedMs, {int targetId = 0}) {
+    final prefix = targetId == 1 ? 'S1:' : (targetId == 2 ? 'S2:' : 'S:');
+    _send('$prefix${speedMs.clamp(100, 3000)}');
+  }
+
+  void sendSpeedDirect(int speedMs, {int targetId = 0}) => sendSpeed(speedMs, targetId: targetId);
+
+  void sendMode(int modeId, {int targetId = 0}) {
+    final prefix = targetId == 1 ? 'M1:' : (targetId == 2 ? 'M2:' : 'M:');
+    _send('$prefix$modeId');
+  }
+
+  void sendPreviewState(bool isPreview, {required int targetId}) {
+    final prefix = targetId == 1 ? 'P1:' : 'P2:';
+    _send('$prefix${isPreview ? 1 : 0}');
+  }
+
+  void sendAddPreset(int mode, int delayMs, String colorHex, int durationSec, {required int targetId}) {
+    final prefix = targetId == 1 ? 'ADD1:' : 'ADD2:';
+    _send('$prefix$mode,$delayMs,$colorHex,$durationSec');
+    Timer(const Duration(milliseconds: 300), () => fetchPlaylistJson(targetId));
+  }
+
+  void sendDeletePreset(int index, {required int targetId}) {
+    final prefix = targetId == 1 ? 'DEL1:' : 'DEL2:';
+    _send('$prefix$index');
+    Timer(const Duration(milliseconds: 300), () => fetchPlaylistJson(targetId));
+  }
 
   void dispose() {
     _heartbeatTimer?.cancel();
