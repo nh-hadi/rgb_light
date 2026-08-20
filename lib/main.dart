@@ -6,9 +6,10 @@ import 'screens/main_navigation_screen.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // MODE EDGE-TO-EDGE: STATUS BAR ATAS TETAP TAMPIL & SISTEM NAVIGASI BAWAH TRANSPARAN SEPENUHNYA
+  // SEMBUNYIKAN SEPENUHNYA NAVIGASI SISTEM HP BAWAH (HANYA TAMPILKAN STATUS BAR ATAS)
   SystemChrome.setEnabledSystemUIMode(
-    SystemUiMode.edgeToEdge,
+    SystemUiMode.manual,
+    overlays: [SystemUiOverlay.top],
   );
 
   SystemChrome.setSystemUIOverlayStyle(

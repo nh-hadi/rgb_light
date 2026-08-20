@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../esp_udp_service.dart';
+import '../models/preset_model.dart';
 import '../widgets/color_wheel_picker.dart';
 import '../widgets/json_animations_panel.dart';
 import '../ws2812fx_modes.dart';
@@ -30,8 +32,96 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
   double _speedPercent = 70.0;
   WS2812FXMode _selectedMode = kWS2812FXModes[12];
   String _activePlayingAnimationId = '';
-  bool _isWheelDragging = false; // FLAG PENGUNCI HALAMAN SAAT MEMUTAR RODA WARNA
-  bool _isPreviewMode = true; // SAKELAR TOGGLE MODE LIVE PREVIEW
+  bool _isWheelDragging = false;
+  bool _isPreviewMode = true;
+  Timer? _inactivityTimer;
+
+  // NAMA FILE JSON TERPISAH BERDASARKAN TARGET STRIP (D4 vs D5)
+  String get _presetFileName =>
+      widget.targetId == 1 ? 'presets_d4.json' : 'presets_d5.json';
+
+  // STATE SAVED PRESET UNTUK REVERT OTOMATIS
+  Color _savedColor = const Color(0xFFFF3B30);
+  double _savedBrightness = 255.0;
+  double _savedSpeedPercent = 70.0;
+  WS2812FXMode _savedMode = kWS2812FXModes[12];
+
+  void _saveCurrentStateAsPreset() {
+    setState(() {
+      _savedColor = _selectedColor;
+      _savedBrightness = _brightness;
+      _savedSpeedPercent = _speedPercent;
+      _savedMode = _selectedMode;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _resetInactivityTimer();
+  }
+
+  @override
+  void dispose() {
+    _inactivityTimer?.cancel();
+    if (_isPreviewMode) {
+      _revertToSavedPreset();
+    }
+    super.dispose();
+  }
+
+  @override
+  void deactivate() {
+    if (_isPreviewMode) {
+      _revertToSavedPreset();
+    }
+    super.deactivate();
+  }
+
+  void _resetInactivityTimer() {
+    _inactivityTimer?.cancel();
+    if (_isPreviewMode) {
+      _inactivityTimer = Timer(const Duration(seconds: 30), () {
+        if (mounted && _isPreviewMode) {
+          setState(() {
+            _isPreviewMode = false;
+          });
+          _revertToSavedPreset();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              duration: Duration(seconds: 2),
+              content: Text('⏱️ Live Preview Timeout (30d). Kembali ke Preset tersimpan.'),
+            ),
+          );
+        }
+      });
+    }
+  }
+
+  void _revertToSavedPreset() {
+    setState(() {
+      _selectedColor = _savedColor;
+      _brightness = _savedBrightness;
+      _speedPercent = _savedSpeedPercent;
+      _selectedMode = _savedMode;
+    });
+
+    final delayMs = _calculateDelayMs(_savedSpeedPercent);
+    widget.udpService.sendColorDirect(_savedColor);
+    widget.udpService.sendBrightnessDirect(_savedBrightness.round());
+    widget.udpService.sendMode(_savedMode.id);
+    widget.udpService.sendSpeedDirect(delayMs);
+  }
+
+  void _activatePreviewAndSend(VoidCallback sendAction) {
+    if (!_isPreviewMode) {
+      setState(() {
+        _isPreviewMode = true;
+      });
+    }
+    _resetInactivityTimer();
+    sendAction();
+  }
 
   final List<Map<String, dynamic>> _savedJsonAnimations = [
     {
@@ -527,13 +617,19 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           setState(() {
                             _isPreviewMode = !_isPreviewMode;
                           });
+                          if (_isPreviewMode) {
+                            _resetInactivityTimer();
+                          } else {
+                            _inactivityTimer?.cancel();
+                            _revertToSavedPreset();
+                          }
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               duration: const Duration(seconds: 1),
                               content: Text(
                                 _isPreviewMode
-                                    ? '👁️ Mode Live Preview Aktif'
-                                    : '▶️ Mode Playlist Animasi Aktif',
+                                    ? '👁️ Live Preview ON (Auto-Revert 30d)'
+                                    : '▶️ Live Preview OFF. Revert ke Preset tersimpan.',
                               ),
                             ),
                           );
@@ -604,10 +700,10 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                         setState(() {
                           _selectedColor = color;
                         });
-                        widget.udpService.sendColor(color);
+                        _activatePreviewAndSend(() => widget.udpService.sendColor(color));
                       },
                       onColorEnd: (color) {
-                        widget.udpService.sendColorDirect(color);
+                        _activatePreviewAndSend(() => widget.udpService.sendColorDirect(color));
                       },
                     ),
                   ),
@@ -686,8 +782,10 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                             setState(() {
                               _selectedColor = color;
                             });
-                            widget.udpService.sendColor(color);
-                            widget.udpService.sendColorDirect(color);
+                            _activatePreviewAndSend(() {
+                              widget.udpService.sendColor(color);
+                              widget.udpService.sendColorDirect(color);
+                            });
                           },
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 200),
@@ -863,10 +961,10 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                         setState(() {
                           _brightness = val;
                         });
-                        widget.udpService.sendBrightness(val.round());
+                        _activatePreviewAndSend(() => widget.udpService.sendBrightness(val.round()));
                       },
                       onChangeEnd: (val) {
-                        widget.udpService.sendBrightnessDirect(val.round());
+                        _activatePreviewAndSend(() => widget.udpService.sendBrightnessDirect(val.round()));
                       },
                     ),
                   ),
@@ -944,11 +1042,11 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           _speedPercent = val;
                         });
                         final delayMs = _calculateDelayMs(val);
-                        widget.udpService.sendSpeed(delayMs);
+                        _activatePreviewAndSend(() => widget.udpService.sendSpeed(delayMs));
                       },
                       onChangeEnd: (val) {
                         final delayMs = _calculateDelayMs(val);
-                        widget.udpService.sendSpeedDirect(delayMs);
+                        _activatePreviewAndSend(() => widget.udpService.sendSpeedDirect(delayMs));
                       },
                     ),
                   ),
@@ -1012,7 +1110,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           setState(() {
                             _selectedMode = mode;
                           });
-                          widget.udpService.sendMode(mode.id);
+                          _activatePreviewAndSend(() => widget.udpService.sendMode(mode.id));
                         }
                       },
                     ),
@@ -1046,7 +1144,10 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(14),
-                      onTap: _showSaveAnimationDialog,
+                      onTap: () {
+                        _saveCurrentStateAsPreset();
+                        _showSaveAnimationDialog();
+                      },
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

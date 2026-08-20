@@ -16,17 +16,37 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen>
+    with WidgetsBindingObserver {
   int _currentIndex = 0;
   final EspUdpService _udpService = EspUdpService();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _udpService.init();
+    _hideSystemNavBar();
+  }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _udpService.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _hideSystemNavBar();
+    }
+  }
+
+  void _hideSystemNavBar() {
     SystemChrome.setEnabledSystemUIMode(
-      SystemUiMode.edgeToEdge,
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.top],
     );
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
@@ -39,12 +59,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         systemNavigationBarContrastEnforced: false,
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _udpService.dispose();
-    super.dispose();
   }
 
   void _openWifiSettings() {
@@ -244,17 +258,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
     ];
 
-    // NAV ITEMS ULTRA-MODERN BLUE GRADIENTS
+    // NAV ITEMS ULTRA-MODERN BLUE GRADIENTS & STABLE MATERIAL ICONS
     final List<NavItemData> navItems = [
       const NavItemData(
-        icon: Icons.schedule_outlined,
-        selectedIcon: Icons.schedule_rounded,
+        icon: Icons.access_time_outlined,
+        selectedIcon: Icons.access_time_filled_rounded,
         label: 'Jam D4',
         gradientColors: [Color(0xFF1D4ED8), Color(0xFF0284C7), Color(0xFF38BDF8)],
       ),
       const NavItemData(
-        icon: Icons.palette_outlined,
-        selectedIcon: Icons.palette_rounded,
+        icon: Icons.badge_outlined,
+        selectedIcon: Icons.badge_rounded,
         label: 'Nama D5',
         gradientColors: [Color(0xFF0284C7), Color(0xFF06B6D4), Color(0xFF22D3EE)],
       ),
@@ -265,8 +279,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         gradientColors: [Color(0xFF1D4ED8), Color(0xFF0284C7), Color(0xFF38BDF8)],
       ),
       const NavItemData(
-        icon: Icons.tune_outlined,
-        selectedIcon: Icons.tune_rounded,
+        icon: Icons.settings_outlined,
+        selectedIcon: Icons.settings_rounded,
         label: 'Setting',
         gradientColors: [Color(0xFF0284C7), Color(0xFF06B6D4), Color(0xFF22D3EE)],
       ),
@@ -323,6 +337,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             child: CustomFloatingBottomNavBar(
               selectedIndex: _currentIndex,
               onItemSelected: (index) {
+                _hideSystemNavBar();
                 setState(() {
                   _currentIndex = index;
                 });
