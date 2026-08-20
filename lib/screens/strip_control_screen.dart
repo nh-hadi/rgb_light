@@ -33,7 +33,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
   WS2812FXMode _selectedMode = kWS2812FXModes[12];
   String _activePlayingAnimationId = '';
   bool _isWheelDragging = false;
-  bool _isPreviewMode = true;
+  bool _isPreviewMode = false;
   Timer? _inactivityTimer;
 
   // NAMA FILE JSON TERPISAH BERDASARKAN TARGET STRIP (D4 vs D5)
@@ -115,6 +115,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
       setState(() {
         _isPreviewMode = true;
       });
+      widget.udpService.sendPreviewState(true, targetId: widget.targetId);
     }
     _resetInactivityTimer();
     sendAction();
@@ -502,7 +503,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
     setState(() {
       _activePlayingAnimationId = anim['id'];
     });
-    widget.udpService.sendMode(_selectedMode.id);
+    widget.udpService.sendMode(_selectedMode.id, targetId: widget.targetId);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         backgroundColor: Colors.green[700],
@@ -700,10 +701,10 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                         setState(() {
                           _selectedColor = color;
                         });
-                        _activatePreviewAndSend(() => widget.udpService.sendColor(color));
+                        _activatePreviewAndSend(() => widget.udpService.sendColor(color, targetId: widget.targetId));
                       },
                       onColorEnd: (color) {
-                        _activatePreviewAndSend(() => widget.udpService.sendColorDirect(color));
+                        _activatePreviewAndSend(() => widget.udpService.sendColorDirect(color, targetId: widget.targetId));
                       },
                     ),
                   ),
@@ -783,8 +784,8 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                               _selectedColor = color;
                             });
                             _activatePreviewAndSend(() {
-                              widget.udpService.sendColor(color);
-                              widget.udpService.sendColorDirect(color);
+                              widget.udpService.sendColor(color, targetId: widget.targetId);
+                              widget.udpService.sendColorDirect(color, targetId: widget.targetId);
                             });
                           },
                           child: AnimatedContainer(
@@ -896,7 +897,10 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           InkWell(
                             borderRadius: BorderRadius.circular(10),
                             onTap: () {
-                              widget.udpService.sendBrightnessDirect(_brightness.round(), targetId: widget.targetId);
+                              setState(() {
+                                _savedBrightness = _brightness;
+                              });
+                              widget.udpService.saveBrightness(_brightness.round(), targetId: widget.targetId);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   duration: const Duration(seconds: 2),
@@ -961,10 +965,10 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                         setState(() {
                           _brightness = val;
                         });
-                        _activatePreviewAndSend(() => widget.udpService.sendBrightness(val.round()));
+                        _activatePreviewAndSend(() => widget.udpService.sendBrightness(val.round(), targetId: widget.targetId));
                       },
                       onChangeEnd: (val) {
-                        _activatePreviewAndSend(() => widget.udpService.sendBrightnessDirect(val.round()));
+                        _activatePreviewAndSend(() => widget.udpService.sendBrightnessDirect(val.round(), targetId: widget.targetId));
                       },
                     ),
                   ),
@@ -1042,11 +1046,11 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           _speedPercent = val;
                         });
                         final delayMs = _calculateDelayMs(val);
-                        _activatePreviewAndSend(() => widget.udpService.sendSpeed(delayMs));
+                        _activatePreviewAndSend(() => widget.udpService.sendSpeed(delayMs, targetId: widget.targetId));
                       },
                       onChangeEnd: (val) {
                         final delayMs = _calculateDelayMs(val);
-                        _activatePreviewAndSend(() => widget.udpService.sendSpeedDirect(delayMs));
+                        _activatePreviewAndSend(() => widget.udpService.sendSpeedDirect(delayMs, targetId: widget.targetId));
                       },
                     ),
                   ),
@@ -1110,7 +1114,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                           setState(() {
                             _selectedMode = mode;
                           });
-                          _activatePreviewAndSend(() => widget.udpService.sendMode(mode.id));
+                          _activatePreviewAndSend(() => widget.udpService.sendMode(mode.id, targetId: widget.targetId));
                         }
                       },
                     ),
@@ -1193,7 +1197,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                     'duration': '${item.durasi} Detik',
                     'color': item.color,
                     'speed': '${((3000 - item.kecepatan) / 2900 * 100).round()}%',
-                    'brightness': '${((_brightness / 255.0) * 100).round()}%',
+                    'brightness': '${((_savedBrightness / 255.0) * 100).round()}%',
                   };
                 }).toList();
 
@@ -1201,7 +1205,7 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                   title: widget.title,
                   accentColor: widget.accentColor,
                   savedAnimations: mappedItems,
-                  globalBrightness: _brightness,
+                  globalBrightness: _savedBrightness,
                   onEdit: (anim) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

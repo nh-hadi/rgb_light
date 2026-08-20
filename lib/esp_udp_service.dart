@@ -241,6 +241,12 @@ class EspUdpService {
 
   void sendBrightnessDirect(int brightness, {int targetId = 0}) => sendBrightness(brightness, targetId: targetId);
 
+  void saveBrightness(int brightness, {required int targetId}) {
+    final prefix = targetId == 1 ? 'BSAVE1:' : 'BSAVE2:';
+    _send('$prefix${brightness.clamp(0, 255)}');
+    Timer(const Duration(milliseconds: 300), () => fetchPlaylistJson(targetId));
+  }
+
   void sendSpeed(int speedMs, {int targetId = 0}) {
     final prefix = targetId == 1 ? 'S1:' : (targetId == 2 ? 'S2:' : 'S:');
     _send('$prefix${speedMs.clamp(100, 3000)}');
