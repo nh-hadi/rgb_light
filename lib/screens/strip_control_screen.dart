@@ -61,10 +61,36 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
     super.initState();
     _resetInactivityTimer();
     widget.udpService.fetchPlaylistJson(widget.targetId);
+
+    final bNotifier = widget.targetId == 2
+        ? widget.udpService.brightnessNotifierD5
+        : widget.udpService.brightnessNotifierD4;
+
+    _brightness = bNotifier.value.toDouble();
+    _savedBrightness = bNotifier.value.toDouble();
+
+    bNotifier.addListener(_onBrightnessSync);
+  }
+
+  void _onBrightnessSync() {
+    final bNotifier = widget.targetId == 2
+        ? widget.udpService.brightnessNotifierD5
+        : widget.udpService.brightnessNotifierD4;
+    if (mounted && !_isPreviewMode) {
+      setState(() {
+        _brightness = bNotifier.value.toDouble();
+        _savedBrightness = bNotifier.value.toDouble();
+      });
+    }
   }
 
   @override
   void dispose() {
+    final bNotifier = widget.targetId == 2
+        ? widget.udpService.brightnessNotifierD5
+        : widget.udpService.brightnessNotifierD4;
+    bNotifier.removeListener(_onBrightnessSync);
+
     _inactivityTimer?.cancel();
     if (_isPreviewMode) {
       _revertToSavedPreset();
@@ -1211,31 +1237,38 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
             const SizedBox(height: 16),
 
             // PANEL DAFTAR ANIMASI JSON COMPACT (DINAMIS SINKRON ESP8266)
-            ValueListenableBuilder<List<PresetItem>>(
-              valueListenable: widget.targetId == 2
-                  ? widget.udpService.playlistNotifierD5
-                  : widget.udpService.playlistNotifierD4,
-              builder: (context, presetItems, child) {
-                final List<Map<String, dynamic>> mappedItems =
-                    presetItems.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final item = entry.value;
-                  return {
-                    'id': index.toString(),
-                    'name': item.modeName,
-                    'modeName': item.modeName,
-                    'duration': '${item.durasi} Detik',
-                    'color': item.color,
-                    'speed': '${((3000 - item.kecepatan) / 2900 * 100).round()}%',
-                    'brightness': '${((_savedBrightness / 255.0) * 100).round()}%',
-                  };
-                }).toList();
+            ValueListenableBuilder<EspConnectionState>(
+              valueListenable: widget.udpService.connectionState,
+              builder: (context, connState, child) {
+                final bool isConnected = connState == EspConnectionState.connected;
 
-                return JsonAnimationsPanel(
-                  title: widget.title,
-                  accentColor: widget.accentColor,
-                  savedAnimations: mappedItems,
-                  globalBrightness: _savedBrightness,
+                return ValueListenableBuilder<List<PresetItem>>(
+                  valueListenable: widget.targetId == 2
+                      ? widget.udpService.playlistNotifierD5
+                      : widget.udpService.playlistNotifierD4,
+                  builder: (context, presetItems, child) {
+                    final List<Map<String, dynamic>> mappedItems = !isConnected
+                        ? []
+                        : presetItems.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final item = entry.value;
+                      return {
+                        'id': index.toString(),
+                        'name': item.modeName,
+                        'modeName': item.modeName,
+                        'duration': '${item.durasi} Detik',
+                        'color': item.color,
+                        'speed': '${((3000 - item.kecepatan) / 2900 * 100).round()}%',
+                        'brightness': '${((_savedBrightness / 255.0) * 100).round()}%',
+                      };
+                    }).toList();
+
+                    return JsonAnimationsPanel(
+                      title: widget.title,
+                      accentColor: widget.accentColor,
+                      savedAnimations: mappedItems,
+                      globalBrightness: _savedBrightness,
+                      isConnected: isConnected,
                   onEdit: (anim) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -1266,7 +1299,9 @@ class _SingleStripControlScreenState extends State<SingleStripControlScreen> {
                   },
                 );
               },
-            ),
+            );
+          },
+        ),
 
             const SizedBox(height: 90),
           ],

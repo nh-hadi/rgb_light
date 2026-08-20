@@ -5,6 +5,7 @@ class JsonAnimationsPanel extends StatelessWidget {
   final Color accentColor;
   final List<Map<String, dynamic>> savedAnimations;
   final double globalBrightness;
+  final bool isConnected;
   final Function(Map<String, dynamic>) onEdit;
   final Function(String) onDelete;
 
@@ -14,6 +15,7 @@ class JsonAnimationsPanel extends StatelessWidget {
     required this.accentColor,
     required this.savedAnimations,
     required this.globalBrightness,
+    this.isConnected = true,
     required this.onEdit,
     required this.onDelete,
   });
@@ -94,11 +96,11 @@ class JsonAnimationsPanel extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '${savedAnimations.length} Item',
+                      isConnected ? '${savedAnimations.length} Item' : 'Offline',
                       style: TextStyle(
                         fontSize: 10.5,
                         fontWeight: FontWeight.bold,
-                        color: accentColor,
+                        color: isConnected ? accentColor : const Color(0xFFEF4444),
                       ),
                     ),
                   ),
@@ -109,7 +111,39 @@ class JsonAnimationsPanel extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          if (savedAnimations.isEmpty)
+          if (!isConnected)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFCA5A5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.wifi_off_rounded, color: Color(0xFFEF4444), size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: const [
+                        Text(
+                          'ESP8266 Belum Terhubung',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Hubungkan HP ke WiFi SmartLight_AP untuk memuat playlist JSON',
+                          style: TextStyle(fontSize: 10.5, color: Color(0xFFB91C1C)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else if (savedAnimations.isEmpty)
             Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),

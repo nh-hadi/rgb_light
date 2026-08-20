@@ -29,6 +29,9 @@ class EspUdpService {
   final ValueNotifier<List<PresetItem>> playlistNotifierD5 =
       ValueNotifier<List<PresetItem>>([]);
 
+  final ValueNotifier<int> brightnessNotifierD4 = ValueNotifier<int>(255);
+  final ValueNotifier<int> brightnessNotifierD5 = ValueNotifier<int>(255);
+
   String _espIp = '192.168.4.1';
   int _espPort = 8888;
 
@@ -84,6 +87,8 @@ class EspUdpService {
                 _handleStateResponse(message);
               } else if (message.startsWith('JSON')) {
                 _handleJsonPlaylistResponse(message);
+              } else if (message.startsWith('INFO:')) {
+                _handleHardwareInfoResponse(message);
               }
             }
           }
@@ -183,6 +188,9 @@ class EspUdpService {
     return completer.future;
   }
 
+  final ValueNotifier<Map<String, dynamic>?> hardwareInfoNotifier =
+      ValueNotifier<Map<String, dynamic>?>(null);
+
   void _handleStateResponse(String message) {
     try {
       final colonIdx = message.indexOf(':');
@@ -191,7 +199,15 @@ class EspUdpService {
       final parts = message.substring(colonIdx + 1).split(',');
       if (parts.length >= 6) {
         _lastResponseTime = DateTime.now();
+        final bool wasDisconnected = connectionState.value != EspConnectionState.connected;
         connectionState.value = EspConnectionState.connected;
+
+        if (wasDisconnected) {
+          debugPrint('⚡ ESP8266 Terhubung! Auto-reload playlist JSON & Hardware INFO...');
+          fetchPlaylistJson(1);
+          fetchPlaylistJson(2);
+          fetchHardwareInfo();
+        }
 
         espStateNotifier.value = {
           'color': Color.fromARGB(255, int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2])),
@@ -206,6 +222,24 @@ class EspUdpService {
     }
   }
 
+  void fetchHardwareInfo() {
+    _send('INFO');
+  }
+
+  void _handleHardwareInfoResponse(String message) {
+    try {
+      _lastResponseTime = DateTime.now();
+      connectionState.value = EspConnectionState.connected;
+
+      final jsonRaw = message.substring(5);
+      final decoded = jsonDecode(jsonRaw) as Map<String, dynamic>;
+      hardwareInfoNotifier.value = decoded;
+      debugPrint('🛡️ Autentikasi Hardware Info UDP Berhasil: $decoded');
+    } catch (e) {
+      debugPrint('Error Parse Hardware INFO UDP: $e');
+    }
+  }
+
   void _handleJsonPlaylistResponse(String message) {
     try {
       _lastResponseTime = DateTime.now();
@@ -217,8 +251,10 @@ class EspUdpService {
       final parsed = StripConfigPresets.fromJson(decoded);
 
       if (isD5) {
+        brightnessNotifierD5.value = parsed.kecerahan;
         playlistNotifierD5.value = parsed.presets;
       } else {
+        brightnessNotifierD4.value = parsed.kecerahan;
         playlistNotifierD4.value = parsed.presets;
       }
       debugPrint('Sync Playlist dari ESP8266 berhasil (${isD5 ? "D5" : "D4"})');

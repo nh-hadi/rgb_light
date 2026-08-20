@@ -182,23 +182,35 @@ class _RtcHeaderState extends State<RtcHeader> {
       builder: (context, connState, child) {
         final bool isConnected = connState == EspConnectionState.connected;
 
-        return ValueListenableBuilder<List<PresetItem>>(
-          valueListenable: targetId == 2
-              ? widget.udpService.playlistNotifierD5
-              : widget.udpService.playlistNotifierD4,
-          builder: (context, presets, child) {
-            String jsonString;
-            if (!isConnected) {
-              jsonString = const JsonEncoder.withIndent('  ').convert({
-                "status": "OFFLINE / ESP8266 BELUM TERHUBUNG",
-                "file": targetId == 2 ? "presets_d5.json" : "presets_d4.json",
-                "kecerahan": 0,
-                "presets": [],
-              });
-            } else {
-              final config = StripConfigPresets(kecerahan: 255, presets: presets);
-              jsonString = const JsonEncoder.withIndent('  ').convert(config.toJson());
-            }
+        final brightnessNotifier = targetId == 2
+            ? widget.udpService.brightnessNotifierD5
+            : widget.udpService.brightnessNotifierD4;
+
+        final playlistNotifier = targetId == 2
+            ? widget.udpService.playlistNotifierD5
+            : widget.udpService.playlistNotifierD4;
+
+        return ValueListenableBuilder<int>(
+          valueListenable: brightnessNotifier,
+          builder: (context, currentBrightness, _) {
+            return ValueListenableBuilder<List<PresetItem>>(
+              valueListenable: playlistNotifier,
+              builder: (context, presets, child) {
+                String jsonString;
+                if (!isConnected) {
+                  jsonString = const JsonEncoder.withIndent('  ').convert({
+                    "status": "OFFLINE / ESP8266 BELUM TERHUBUNG",
+                    "file": targetId == 2 ? "presets_d5.json" : "presets_d4.json",
+                    "kecerahan": 0,
+                    "presets": [],
+                  });
+                } else {
+                  final config = StripConfigPresets(
+                    kecerahan: currentBrightness,
+                    presets: presets,
+                  );
+                  jsonString = const JsonEncoder.withIndent('  ').convert(config.toJson());
+                }
 
             return Container(
               width: double.infinity,
@@ -224,6 +236,8 @@ class _RtcHeaderState extends State<RtcHeader> {
         );
       },
     );
+  },
+);
   }
 
   @override

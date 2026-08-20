@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import '../esp_udp_service.dart';
 import '../widgets/custom_bottom_nav_bar.dart';
 import '../widgets/header.dart';
+import 'about_screen.dart';
 import 'placeholder_screen.dart';
 import 'strip_control_screen.dart';
 
@@ -249,9 +250,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen>
         title: 'Pengaturan App',
         icon: Icons.tune_rounded,
       ),
-      const DevelopmentPlaceholderScreen(
-        title: 'Tentang Perangkat',
-        icon: Icons.info_outline_rounded,
+      AboutScreen(
+        udpService: _udpService,
       ),
     ];
 
