@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'models/preset_model.dart';
+import 'security_config.dart';
 
 enum EspConnectionState { disconnected, connecting, connected }
 
@@ -20,6 +21,8 @@ class EspUdpService {
 
   final ValueNotifier<EspConnectionState> connectionState =
       ValueNotifier<EspConnectionState>(EspConnectionState.disconnected);
+
+  final ValueNotifier<bool> isDeviceAuthorized = ValueNotifier<bool>(true);
 
   final ValueNotifier<Map<String, dynamic>?> espStateNotifier =
       ValueNotifier<Map<String, dynamic>?>(null);
@@ -234,7 +237,16 @@ class EspUdpService {
       final jsonRaw = message.substring(5);
       final decoded = jsonDecode(jsonRaw) as Map<String, dynamic>;
       hardwareInfoNotifier.value = decoded;
-      debugPrint('🛡️ Autentikasi Hardware Info UDP Berhasil: $decoded');
+
+      // Verifikasi Signature Keamanan Perangkat (Anti-Kloning)
+      final String? espSignature = decoded['signature'] as String?;
+      if (espSignature == SecurityConfig.appSecuritySignature) {
+        isDeviceAuthorized.value = true;
+        debugPrint('🛡️ Autentikasi Hardware BERHASIL! Signature cocok.');
+      } else {
+        isDeviceAuthorized.value = false;
+        debugPrint('❌ PERANGKAT UN-AUTHORIZED / PALSU! Signature ($espSignature) tidak cocok dengan SecurityConfig.');
+      }
     } catch (e) {
       debugPrint('Error Parse Hardware INFO UDP: $e');
     }
@@ -268,6 +280,14 @@ class EspUdpService {
       init();
       return;
     }
+
+    // Hanya ijinkan command query jika perangkat belum terverifikasi
+    final isQueryCommand = message == 'INFO' || message == 'Q' || message == 'Q1' || message == 'Q2' || message == 'LIST1' || message == 'LIST2';
+    if (!isQueryCommand && !isDeviceAuthorized.value) {
+      debugPrint('🚫 BLOKIR: Pengiriman perintah ("$message") dibatalkan karena perangkat tidak terverifikasi (Signature tidak cocok).');
+      return;
+    }
+
     try {
       _socket?.send(message.codeUnits, InternetAddress(_espIp), _espPort);
     } catch (e) {
